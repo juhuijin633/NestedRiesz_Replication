@@ -25,17 +25,16 @@ class DiD_DGP:
         if seed is not None:
             torch.manual_seed(seed)
         X1 = torch.randn(n, self.dim_X)
-        Z = torch.randn(n, self.dim_Z)
         X11 = X1[:, 0]
+        eta = torch.randn(n)
+        eps_x = torch.randn(n, self.dim_X)
+        Z = torch.randn(n, self.dim_Z)
         Y1 = self.beta_1 * (X11 > 0).float() + self.delta_1 * X11 + Z @ self.gamma_2 + torch.randn(n) 
-        prob_D = self.g(self.delta_2* X11 + Z @ self.gamma_1 + self.alpha_1 * Y1) # propensity score
-        D = torch.bernoulli(prob_D).unsqueeze(1)
-        scalar_noise = torch.randn(n, 1)
-        noise = torch.randn(n, self.dim_X)
-        X2 = X1 + D * (1 + scalar_noise) * torch.ones_like(X1) + noise
+        prob_D = self.g(self.delta_2* X11 + Z @ self.gamma_1 + self.alpha_1 * Y1 + eta) # propensity score
+        D = torch.bernoulli(prob_D)
+        X2 = X1 + torch.ones(n, self.dim_X) *  (torch.mul(D,Y1) *(1 + eta)).unsqueeze(1)  + eps_x
         X21 = X2[:, 0]
         Y2 = Y1 + self.c_1 * D.squeeze() + self.beta_2 * (X21 > 0).float() + self.delta_3* D.squeeze() * X21 + torch.randn(n)
-
 
         self.ATT = torch.mean(Y2[D.squeeze() == 1] - Y1[D.squeeze() == 1])
         return {
