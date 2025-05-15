@@ -32,7 +32,7 @@ class DiD_DGP:
         Y1 = self.beta_1 * (X11 > 0).float() + self.delta_1 * X11 + Z @ self.gamma_2 + torch.randn(n) 
         prob_D = self.g(self.delta_2* X11 + Z @ self.gamma_1 + self.alpha_1 * Y1 + eta) # propensity score
         D = torch.bernoulli(prob_D)
-        X2 = X1 + torch.ones(n, self.dim_X) *  (torch.mul(D,Y1) *(1 + eta)).unsqueeze(1)  + eps_x
+        X2 = X1 + torch.ones(n, self.dim_X) *  (D *(1 + eta)).unsqueeze(1)  + eps_x
         X21 = X2[:, 0]
         Y2 = Y1 + self.c_1 * D.squeeze() + self.beta_2 * (X21 > 0).float() + self.delta_3* D.squeeze() * X21 + torch.randn(n)
 
