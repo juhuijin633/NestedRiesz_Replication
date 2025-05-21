@@ -304,7 +304,7 @@ class Learner_a_RF:
 
         return self.learner.predict_riesz(X, D)
   
-class Learner_f_RF:
+class Learner_f_RF_deletethis:
     
     def __init__(self, rf_f_settings = rf_f_settings_global):
         """
@@ -434,6 +434,67 @@ class Learner_f_RFreg(BaseGRF):
         else:
             point = self.predict(X, interval=interval, alpha=alpha)
             return torch.tensor(self._translate(point, X, T)).float().reshape(-1,1)
+
+class Learner_f_RF:
+
+    """
+    This class estimates the f_t function:
+    f_t(X_t, D_t) = E [ f_t+1(X_t+1, d_t+1) | X_t, D_t ].
+
+    Note that for notation, any variable here contains it's whole history. E.g. X_t = (X_1, X_2, ..., X_t-1, X_t)
+
+    Assume all input and output is alsways torch tensor
+    """
+
+    
+    def __init__(self, n_estimators = 100, random_state = 42, rf_f_settings = rf_f_settings_global):
+        
+        self.n_estimators = n_estimators
+        self.random_state = random_state
+
+
+    def fit(self, y, X, D):
+        """
+        Parameters
+        ----------
+        y (nx1) : outcome variable, which is f_t+1(X_t+1, d_t+1). 
+        X (nx(p1,...pT) : history of all covariates up to time t.
+        D (nxt) : history of all treatment assignments up to time t.
+        """
+        
+        if isinstance(X, torch.Tensor):
+            X = X.detach().cpu().numpy()  
+        if isinstance(y, torch.Tensor):
+            y = y.detach().cpu().numpy()  
+        if isinstance(D, torch.Tensor):
+            D = D.detach().cpu().numpy()  
+            
+        XD = np.hstack((X, D))
+            
+        self.f = RandomForestRegressor(n_estimators = self.n_estimators, random_state = self.random_state)
+        
+        self.f.fit(XD, y.ravel())
+        
+
+        return self
+    
+    def predict(self, X, D):
+        """
+        Parameters
+        ----------
+        X (nx(p1,...pT) : history of all covariates up to time t.
+        D (nxt) : history of all treatment assignments up to time t.
+        """
+        
+        if isinstance(X, torch.Tensor):
+            X = X.detach().cpu().numpy()  
+        if isinstance(D, torch.Tensor):
+            D = D.detach().cpu().numpy()  
+
+        XD = np.hstack((X, D))
+
+        return torch.tensor(self.f.predict(XD).reshape(-1,1)).float()
+
 
 
 
