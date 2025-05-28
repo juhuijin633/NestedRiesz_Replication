@@ -1,7 +1,7 @@
 import torch
 
 class DiD_DGP:
-    def __init__(self, dim_X=3, dim_Z = 3, beta_1=2.0, beta_2=1.5, c_1=1.0, delta_1 = 1 , delta_2 =1 , delta_3=0.5 , alpha_1 =.5, gamma_1 = None, gamma_2= None, g  = None):
+    def __init__(self, dim_X=3, dim_Z = 3, beta_1=2.0, beta_2=1.5, c_1=1.0, delta_1 = 1 , delta_2 =1 , delta_3=1 , alpha_1 =1, gamma_1 = None, gamma_2= None, g  = None):
         self.dim_X = dim_X
         self.dim_Z = dim_Z
         self.beta_1 = beta_1
@@ -64,6 +64,7 @@ class DiD_DGP:
         E_X21D1 = torch.mean(I_X21D1[D == 1]) # P(X21(1) > 0 | D = 1)
         E_X20D1 = torch.mean(I_X20D1[D == 1])  # P(X21(0) > 0 | D = 1)
         ATT = self.c_1 + self.beta_2 * E_X21D1 - self.beta_2 * E_X20D1 + self.delta_3 * E_X1D1 + self.delta_3* E_ETAD1 + self.delta_3*1
+        del X1, X11, eta, eps_x, Z, Y1, prob_D, D, X2_0, X2_1, X21_0, X21_1, I_X21D1, I_X20D1
         return {"ATT": ATT, 
                 "E_X1D1": E_X1D1, "E_ETAD1": E_ETAD1, 
                 "E_X21D1": E_X21D1, "E_X20D1": E_X20D1,}
