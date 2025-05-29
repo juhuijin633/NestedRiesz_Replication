@@ -163,7 +163,7 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
                                         rf_a_settings = rf_a_settings_global,
                                             rf_f_settings = rf_f_settings_global,
                                                 net_a_settings = net_a_settings_global,
-                                                    net_f_settings = net_f_settings_global):
+                                                    net_f_settings = net_f_settings_global, seed = None):
         
     fold_results = torch.zeros(Y1.shape)
     RR1 = torch.zeros(Y1.shape)
@@ -189,7 +189,7 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
                                         rf_a_settings = rf_a_settings,
                                             rf_f_settings = rf_f_settings,
                                                 net_a_settings = net_a_settings,
-                                                    net_f_settings = net_f_settings)
+                                                    net_f_settings = net_f_settings, seed = seed)
         trainer.train()
 
         # Predict theta for every observation in the test data
@@ -209,7 +209,8 @@ class Trainer:
                             rf_a_settings = rf_a_settings_global,
                                 rf_f_settings = rf_f_settings_global,
                                     net_a_settings = net_a_settings_global,
-                                        net_f_settings = net_f_settings_global):
+                                        net_f_settings = net_f_settings_global, 
+                                        seed = None):
                 
         """
         Dictionary mapping function 
@@ -232,16 +233,20 @@ class Trainer:
 
         # initalise trainers for f functions
         if method_f == 'LASSO':
+            lasso_f_settings["seed"] = seed
             self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings) for _ in range(self.T)]
         if method_f == 'RF':
+            rf_f_settings["random_state"] = seed
             self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings) for _ in range(self.T)]
         if method_f == 'Net':
             self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings) for _ in range(self.T)]
         
         # initalise trainers for a functions
         if method_a == "LASSO":
+            lasso_a_settings["seed"] = seed
             self.learners_a = [utils.dynamicRieszLASSO.Learner_a_LASSO(lasso_a_settings = lasso_a_settings) for _ in range(self.T)]
         if method_a == "RF":
+            rf_a_settings["random_state"] = seed
             self.learners_a = [utils.dynamicRieszRF.Learner_a_RF(rf_a_settings = rf_a_settings) for _ in range(self.T)]
         if method_a == "Net":
             self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings = net_a_settings) for _ in range(self.T)]

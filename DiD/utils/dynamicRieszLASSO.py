@@ -176,7 +176,7 @@ def RMD_stable(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, cont
     
     return rho_hat
 
-def get_optimal_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1_vals, c2, tol, control, beta_start):
+def get_optimal_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1_vals, c2, tol, control, beta_start, seed = None):
     """
     Function to find the optimal hyperparameter `c` using cross-validation.
     """
@@ -184,23 +184,22 @@ def get_optimal_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1_vals, c2, 
     cv_vals = torch.empty(n_vals)
     
     for i, c1_val in enumerate(c1_vals):
-        cv_vals[i] = crossval_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1_val, c2, tol, control, beta_start)
+        cv_vals[i] = crossval_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1_val, c2, tol, control, beta_start, seed = seed)
     
     # Find the value of `c` that minimizes the cross-validation loss
     c_star = c1_vals[torch.argmin(cv_vals)]
 
     return c_star
 
-def crossval_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, control, beta_start):
+def crossval_c1(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, control, beta_start, seed = None):
     """
     Cross-validation function for ridge regression or conditional expectation function.
 
     For now: number of folds fixed to 5
     """
     cv_loss = []
-
     folds = 5
-    kf = KFold(n_splits=folds, shuffle=True)
+    kf = KFold(n_splits=folds, shuffle=True, random_state=seed)
     # Iterate through folds
     for fold, (train_index, test_index) in enumerate(kf.split(X)):        
         
@@ -306,6 +305,7 @@ class Learner_a_LASSO:
         self.max_iter = lasso_a_settings['max_iter']
         self.b_degree = lasso_a_settings['b_degree']
         self.control = lasso_a_settings['control']
+        self.seed = lasso_a_settings['seed']
 
     def fit(self, X, D, a_prev):
         """
@@ -329,7 +329,7 @@ class Learner_a_LASSO:
 
         # Tuning c1 
         if self.c1 == "CV":
-            c1 = get_optimal_c1(X, D, d, a_prev, self.b_func, self.D_LB, self.D_add, self.max_iter, c1_vals, self.c2, self.tol, self.control, self.beta_start)
+            c1 = get_optimal_c1(X, D, d, a_prev, self.b_func, self.D_LB, self.D_add, self.max_iter, c1_vals, self.c2, self.tol, self.control, self.beta_start, seed = self.seed)
             self.c1 = c1
         
         # Apply LASSO
@@ -374,7 +374,7 @@ class Learner_f_LASSO:
         self.max_iter = lasso_f_settings['max_iter']
         self.b_degree = lasso_f_settings['b_degree']
         self.control = lasso_f_settings['control']
-
+        self.seed = lasso_f_settings['seed']
     
     def fit(self, Y, X, D):
         """
@@ -396,7 +396,7 @@ class Learner_f_LASSO:
 
         # Tuning c1 
         if self.c1 == "CV":
-            c1 = get_optimal_c1(X, D, D, Y, self.b_func, self.D_LB, self.D_add, self.max_iter, c1_vals, self.c2, self.tol, self.control, self.beta_start)
+            c1 = get_optimal_c1(X, D, D, Y, self.b_func, self.D_LB, self.D_add, self.max_iter, c1_vals, self.c2, self.tol, self.control, self.beta_start, seed = self.seed)
             self.c1 = c1
         
         # Apply LASSO
