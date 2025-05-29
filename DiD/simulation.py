@@ -12,7 +12,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-N = 1500
+N = 500
 tmax = 100
 dimX = 3
 dimZ = 2
@@ -177,7 +177,7 @@ for model_name, prop_func in propensity_models.items():
                     alpha_1 = 1, # Y_1s effect on D
                 gamma_1=torch.ones(dimZ), # Z effect on D
                     gamma_2=torch.ones(dimZ), # Z effect on Y
-                    g = truncated_logistic, # specification of the propensity modek
+                    g = prop_func, # specification of the propensity modek
                     beta_2=2,
                     delta_3= 2 
                     )
@@ -192,12 +192,10 @@ for model_name, prop_func in propensity_models.items():
 
     pred_theta = torch.zeros(tmax, 5)
     pred_sig = torch.zeros(tmax, 5)
-    RR1 = torch.zeros(N, tmax, 5)
-    RR2 = torch.zeros(N, tmax, 5)
-    f1 = torch.zeros(N, tmax, 5)
-    f2 = torch.zeros(N, tmax, 5)
+
 
     for t in tqdm(range(tmax)):
+        torch.manual_seed(t)
         X1_sub = X1[t*N:(t+1)*N, :]
         X2_sub = X2[t*N:(t+1)*N, :]
         Y1_sub = Y1[t*N:(t+1)*N].view(-1, 1)
@@ -205,22 +203,41 @@ for model_name, prop_func in propensity_models.items():
         D_sub = D[t*N:(t+1)*N].view(-1, 1)
         Z_sub = Z[t*N:(t+1)*N, :]
 
-        pred_theta[t, 1], pred_sig[t, 1] = estimateDiDLinear(Y1_sub, Y2_sub, D_sub, Z_sub, X1_sub, X2_sub)
+        pred_theta[t, 1], pred_sig[t, 1] = estimateDiDLinear(Y1_sub, Y2_sub, D_sub, Z_sub, X1_sub, X2_sub, seed = t)
 
-        pred_theta[t, 3], pred_sig[t, 3], RR1[:, t, 3:4], RR2[:, t, 3:4] = estimateDynamicRiesz(
+        pred_theta[t,2], pred_sig[t,2], *_ = estimateDynamicRiesz( Y1_sub, Y2_sub, D_sub, Z_sub, X1_sub, X2_sub, folds,
+                                                                        method_a = "LASSO", lasso_a_settings = lasso_a_settings,
+                                                                            method_f = "LASSO", lasso_f_settings = lasso_f_settings,
+                                                                            seed = t)
+        pred_theta[t, 3], pred_sig[t, 3],*_ = estimateDynamicRiesz(
             Y1_sub, Y2_sub, D_sub, Z_sub, X1_sub, X2_sub, folds,
             method_a="RF", rf_a_settings=rf_a_settings,
-            method_f="RF", rf_f_settings=rf_f_settings
-        )
+            method_f="RF", rf_f_settings=rf_f_settings,
+            seed = t)
+        pred_theta[t,4], pred_sig[t,4], *_ = estimateDynamicRiesz(Y1_sub, Y2_sub, D_sub, Z_sub, X1_sub, X2_sub, folds,
+                                                                        method_a = "Net", net_a_settings = net_a_settings,
+                                                                            method_f = "Net", net_f_settings = net_f_settings, seed=t)
+            
 
     torch.save(pred_theta, f"results/{file_suffix}_pred_theta.pt")
     torch.save(pred_sig, f"results/{file_suffix}_pred_sig.pt")
 
-    rmse_linear = torch.sqrt(torch.mean((pred_theta[:, 1] - ATT_calculations["ATT"])**2))
-    rmse_DynamicRiesz = torch.sqrt(torch.mean((pred_theta[:, 3] - ATT_calculations["ATT"])**2))
-    sd_linear = torch.mean(pred_sig[:, 1])
-    sd_DynamicRiesz = torch.mean(pred_sig[:, 3])
 
+    rmse_linear = torch.sqrt(torch.mean((pred_theta[:, 1] - ATT_calculations["ATT"])**2))
+    sd_linear = torch.mean(pred_sig[:, 1])
+
+    rmse_lasso = torch.sqrt(torch.mean((pred_theta[:, 2] - ATT_calculations["ATT"])**2))
+    sd_lasso = torch.mean(pred_sig[:, 2])
+
+    rmse_rf = torch.sqrt(torch.mean((pred_theta[:, 3] - ATT_calculations["ATT"])**2))
+    sd_rf = torch.mean(pred_sig[:, 3])
+
+    rmse_net = torch.sqrt(torch.mean((pred_theta[:, 4] - ATT_calculations["ATT"])**2))
+    sd_net = torch.mean(pred_sig[:, 4])
+
+    # Print summary
     print(f"Results for {model_name}:")
-    print(f"  RMSE Linear: {rmse_linear:.4f}, SD: {sd_linear:.4f}")
-    print(f"  RMSE DynamicRiesz: {rmse_DynamicRiesz:.4f}, SD: {sd_DynamicRiesz:.4f}")
+    print(f"  RMSE Linear:       {rmse_linear:.4f}, SD: {sd_linear:.4f}")
+    print(f"  RMSE LASSO Riesz:  {rmse_lasso:.4f}, SD: {sd_lasso:.4f}")
+    print(f"  RMSE RF Riesz:     {rmse_rf:.4f}, SD: {sd_rf:.4f}")
+    print(f"  RMSE Net Riesz:    {rmse_net:.4f}, SD: {sd_net:.4f}")
