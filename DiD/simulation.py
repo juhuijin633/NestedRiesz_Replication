@@ -12,6 +12,13 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+N = 1500
+tmax = 100
+dimX = 3
+dimZ = 2
+seed = 123
+folds = 5
+
 lasso_cv_settings = {
     'b_degree' : 1,
     'cv_folds' : 5,
@@ -137,12 +144,7 @@ net_f_settings = {
     'act_func' : 'elu'
 }
 
-N = 1000
-tmax = 100
-dimX = 3
-dimZ = 2
-seed = 123
-folds = 5
+
 
 
 # Bounds (only for truncated distributions)
@@ -170,7 +172,7 @@ propensity_models = {
 
 for model_name, prop_func in propensity_models.items():
     print(f"\nRunning with propensity model: {model_name}")
-
+    file_suffix = f"N:{N}_{model_name}"
     dgp = DiD_DGP(dim_X=dimX, dim_Z=dimZ, 
                     alpha_1 = 1, # Y_1s effect on D
                 gamma_1=torch.ones(dimZ), # Z effect on D
@@ -186,7 +188,7 @@ for model_name, prop_func in propensity_models.items():
     Z, D = data['Z'], data['D']
 
     ATT_calculations = dgp.simulate_ATT(n=100000000)
-    torch.save(ATT_calculations, f"results/{model_name}_ATT_calculations.pt")
+    torch.save(ATT_calculations, f"results/{file_suffix}_ATT_calculations.pt")
 
     pred_theta = torch.zeros(tmax, 5)
     pred_sig = torch.zeros(tmax, 5)
@@ -211,8 +213,8 @@ for model_name, prop_func in propensity_models.items():
             method_f="RF", rf_f_settings=rf_f_settings
         )
 
-    torch.save(pred_theta, f"results/{model_name}_pred_theta.pt")
-    torch.save(pred_sig, f"results/{model_name}_pred_sig.pt")
+    torch.save(pred_theta, f"results/{file_suffix}_pred_theta.pt")
+    torch.save(pred_sig, f"results/{file_suffix}_pred_sig.pt")
 
     rmse_linear = torch.sqrt(torch.mean((pred_theta[:, 1] - ATT_calculations["ATT"])**2))
     rmse_DynamicRiesz = torch.sqrt(torch.mean((pred_theta[:, 3] - ATT_calculations["ATT"])**2))
