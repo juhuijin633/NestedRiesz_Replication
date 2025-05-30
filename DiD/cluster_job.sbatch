@@ -10,7 +10,7 @@
 #SBATCH --mem=100GB
 #SBATCH --partition=intermediate
 
-module load python/3.10.16-fasrc01
+module load python/3.10.13-fasrc01
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
 conda activate NestedRiesz
