@@ -16,7 +16,7 @@ Ns = [500, 1000, 2000]
 tmax = 100
 dimX = 3
 dimZ = 2
-seed = 123
+seed = 123 # this seed is for the DGP
 folds = 5
 # Bounds (only for truncated distributions)
 lower = 0.30
@@ -74,7 +74,7 @@ rf_a_settings = {
     'inference' : True,
     'fit_intercept' : True,
     'subforest_size' : 4,
-    'n_jobs' : -1,
+    'n_jobs' : 1,
     'random_state' : None,
     'verbose' : 0,
     'warm_start' : False
@@ -98,7 +98,7 @@ rf_f_settings = {
     'inference' : True,
     'fit_intercept' : True,
     'subforest_size' : 4,
-    'n_jobs' : -1,
+    'n_jobs' : 1,
     'random_state' : None,
     'verbose' : 0,
     'warm_start' : False
@@ -196,7 +196,7 @@ for N in tqdm(Ns):
         pred_sig = torch.zeros(tmax, 5)
 
 
-        for t in range(tmax):
+        for t in tqdm(range(tmax)):
             torch.manual_seed(t)
             X1_sub = X1[t*N:(t+1)*N, :]
             X2_sub = X2[t*N:(t+1)*N, :]
