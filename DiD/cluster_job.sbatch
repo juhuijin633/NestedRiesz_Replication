@@ -5,7 +5,7 @@
 #SBATCH -e err.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=marvinlob@fas.harvard.edu
-#SBATCH -t 24-00:00  
+#SBATCH -t 4-00:00  
 #SBATCH --cpus-per-task=1 
 #SBATCH --mem=100GB
 #SBATCH --partition=intermediate
