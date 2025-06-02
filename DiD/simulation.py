@@ -12,7 +12,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-N = 500
+N = 1000
 tmax = 100
 dimX = 3
 dimZ = 2
@@ -21,7 +21,7 @@ folds = 5
 
 lasso_cv_settings = {
     'b_degree' : 1,
-    'cv_folds' : 5,
+    'cv_folds' : folds,
     'random_state' : 42
 }
 
