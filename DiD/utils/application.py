@@ -28,9 +28,11 @@ class application_data():
             "lemp", "treated", "state_name", "FIPS", "quarter", "censusdiv",
             "region", "ever_treated", "id", "state_mw", "fed_mw", "G", "countyreal"
         ]
+        ids = filtered_data["id"]
         X = filtered_data.drop(columns=remove_columns).copy()
 
         X1 = X[X["year"] == pre_treatment_year].drop(columns=["year"]).reset_index(drop=True)
+        ids = ids[X["year"] == pre_treatment_year]
         X2 = X[X["year"] == post_treatment_year].drop(columns=["year"]).reset_index(drop=True)
         print("Changing covariates: ", X1.columns.to_list())    
         X1 = torch.tensor(X1.values, dtype=torch.float32)
@@ -43,7 +45,7 @@ class application_data():
         )
             
         # Z variables
-        Z = filtered_data[filtered_data["year"] == post_treatment_year][["region", "censusdiv"]].reset_index(drop=True)
+        Z = filtered_data[filtered_data["year"] == post_treatment_year][["region"]].reset_index(drop=True)
         # One-hot encoding for categorical variables
         encoder = OneHotEncoder(sparse_output=False, drop='first')
         Z_encoded = encoder.fit_transform(Z)
@@ -54,7 +56,8 @@ class application_data():
             Z = Z.merge(baselines, left_index=True, right_index=True)
 
         print("Z variables: ", Z.columns.to_list())
-        Z = torch.tensor(Z.values)
+
+        Z = torch.tensor(Z.values,  dtype=torch.float32)
 
         return {
             "X1": X1,
