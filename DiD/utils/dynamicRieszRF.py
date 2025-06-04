@@ -26,7 +26,7 @@ rf_a_settings_global = {
     'fit_intercept' : True,
     'subforest_size' : 4,
     'n_jobs' : -1,
-    'random_state' : None,
+    'random_state' : 42,
     'verbose' : 0,
     'warm_start' : False
 }
@@ -50,7 +50,7 @@ rf_f_settings_global = {
     'fit_intercept' : True,
     'subforest_size' : 4,
     'n_jobs' : -1,
-    'random_state' : None,
+    'random_state' : 42,
     'verbose' : 0,
     'warm_start' : False
 }

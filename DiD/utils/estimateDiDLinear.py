@@ -18,11 +18,11 @@ lasso_f_settings_global = {
     'control' : {'maxIter': 1000, 'optTol': 1e-5, 'zeroThreshold': 1e-6}
 }
 
-def estimateDiDLinear(Y1, Y2, D, Z, X1, X2):
+def estimateDiDLinear(Y1, Y2, D, Z, X1, X2, seed =None):
 
     fold_results = torch.zeros(Y1.shape)
 
-    trainer = Trainer(Y1, Y2, D, Z, X1, X2)
+    trainer = Trainer(Y1, Y2, D, Z, X1, X2, seed = seed)
     trainer.train()
 
     fold_results = trainer.theta0  
@@ -35,7 +35,7 @@ def estimateDiDLinear(Y1, Y2, D, Z, X1, X2):
 
 class Trainer:
 
-    def __init__(self, Y1, Y2, D, Z, X1, X2):
+    def __init__(self, Y1, Y2, D, Z, X1, X2, seed = None):
 
         self.Y1 = Y1
         self.Y2 = Y2
@@ -46,6 +46,8 @@ class Trainer:
         self.D = D
         self.Z = Z
         self.T = 2
+        self.seed = seed
+        lasso_f_settings_global["seed"] = seed
 
         self.learner_x = utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings_global)
         self.learner_f = utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings_global)
