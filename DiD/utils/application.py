@@ -26,7 +26,7 @@ class application_data():
         # Covariates #
         remove_columns  = [
             "lemp", "treated", "state_name", "FIPS", "quarter", "censusdiv",
-            "region", "ever_treated", "id", "state_mw", "fed_mw", "G", "countyreal"
+            "region", "ever_treated", "id", "state_mw", "fed_mw", "G", "countyreal", "emp0A01_BS",  "countyreal", 'pop', "annual_avg_pay"
         ]
         ids = filtered_data["id"]
         X = filtered_data.drop(columns=remove_columns).copy()
