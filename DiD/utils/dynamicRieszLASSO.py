@@ -5,6 +5,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from itertools import combinations
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LassoCV
+import pdb 
 
 # c1_vals = torch.tensor([5/4, 1, 3/4, 1/2]) / 2     # values from the ECTA paper
 c1_vals = torch.tensor([1, 1/2, 1/4, 1/8, 1/16]) / 2     # I found that lower values work better
@@ -264,6 +265,11 @@ class b_polynomial:
         # Now interact all X polynomials with all D interactions terms
         interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)
 
+        # Check for collinearity in interactions
+        columns_fully_zero = ~(interactions_XD.abs().sum(dim=0) == 0)
+        columns_equal_vector = ~torch.all(interactions_XD == D, dim=0)
+        interactions_XD = interactions_XD[:, columns_fully_zero & columns_equal_vector]
+
         full_covariates = torch.hstack((X_poly, D_interacted, interactions_XD))
 
         if (self.standardization is None):
@@ -326,6 +332,7 @@ class Learner_a_LASSO:
         b_func_class = b_polynomial(self.b_degree)
         b_func_class.set_standardization(X,D)
         self.b_func = b_func_class.b_poly
+
 
         # Tuning c1 
         if self.c1 == "CV":
