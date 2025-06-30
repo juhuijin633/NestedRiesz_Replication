@@ -90,9 +90,7 @@ class Learner_a_Net:
         self.n_hidden = net_a_settings['n_hidden']
         self.drop_prob = net_a_settings['drop_prob']
 
-    def fit(self, X, D, a_prev):
-
-        d = D * 0
+    def fit(self, X, D, d, a_prev):
         
         DX = torch.hstack((D, X))
         dX = torch.hstack((d, X))

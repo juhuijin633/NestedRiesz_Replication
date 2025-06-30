@@ -263,7 +263,7 @@ class Learner_a_RF:
                 
         self.rf_a_settings = rf_a_settings
 
-    def fit(self, X, D, a_prev):
+    def fit(self, X, D, d, a_prev):
         """
         Parameters
         ----------
@@ -275,7 +275,6 @@ class Learner_a_RF:
         
         a_prev (nx1) : a_t-1 (X_t-1, D_t-1) the previously step RR. Not the function, but the actual predicted values
         """
-        d = D * 0
 
         X = X.numpy()
         D = D.numpy()
