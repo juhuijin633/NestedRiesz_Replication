@@ -265,10 +265,10 @@ class b_polynomial:
         # Now interact all X polynomials with all D interactions terms
         interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)
 
-        # Check for collinearity in interactions
-        columns_fully_zero = ~(interactions_XD.abs().sum(dim=0) == 0)
-        columns_equal_vector = ~torch.all(interactions_XD == D, dim=0)
-        interactions_XD = interactions_XD[:, columns_fully_zero & columns_equal_vector]
+        # # Check for collinearity in interactions
+        # columns_fully_zero = ~(interactions_XD.abs().sum(dim=0) == 0)
+        # columns_equal_vector = ~torch.all(interactions_XD == D, dim=0)
+        # interactions_XD = interactions_XD[:, columns_fully_zero & columns_equal_vector]
 
         full_covariates = torch.hstack((X_poly, D_interacted, interactions_XD))
 
@@ -313,7 +313,7 @@ class Learner_a_LASSO:
         self.control = lasso_a_settings['control']
         self.seed = lasso_a_settings['seed']
 
-    def fit(self, X, D, a_prev):
+    def fit(self, X, D, d, a_prev):
         """
         Parameters
         ----------
@@ -325,8 +325,6 @@ class Learner_a_LASSO:
         
         a_prev (nx1) : a_t-1 (X_t-1, D_t-1) the previously step RR. Not the function, but the actual predicted values
         """
-
-        d = D * 0
         
         # Standardization:
         b_func_class = b_polynomial(self.b_degree)

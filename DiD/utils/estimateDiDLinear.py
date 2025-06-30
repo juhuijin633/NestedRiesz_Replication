@@ -53,8 +53,29 @@ class Trainer:
         self.learner_f = utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings_global)
 
     def train(self):
+        if torch.all(self.Z == 0):
+            # For delta X2(0)
 
-        if self.Z is not None:
+            predictors_1 = torch.hstack((self.X1, self.Y1))
+            predictors_2 = self.X1
+            for i in range(self.X2.shape[1]):
+                # Estimate delta X equation by LASSO
+                self.learner_x.fit(self.delta_X[:,i:i+1], predictors_1, self.D)
+                # Estimate delta X2(0)
+                dX2_0_hat = self.learner_x.predict(predictors_1, self.D * 0)
+                predictors_2 = torch.hstack((predictors_2, dX2_0_hat))
+
+            # For delta Y(0)
+
+            # Estimate delta Y equation by LASSO
+            self.learner_f.fit(self.delta_Y, predictors_2, self.D)
+            # Estimate delta Y(0)
+            dY_0_hat = self.learner_f.predict(predictors_2, self.D * 0)
+
+            # Estimate ATT
+            self.theta0 = (self.delta_Y[self.D.squeeze() == 1]) - (dY_0_hat[self.D.squeeze() == 1])
+
+        else:
             # For delta X2(0)
 
             predictors_1 = torch.hstack((self.Z, self.X1, self.Y1))
@@ -77,27 +98,6 @@ class Trainer:
             self.theta0 = (self.delta_Y[self.D.squeeze() == 1]) - (dY_0_hat[self.D.squeeze() == 1])
 
 
-        if self.Z is None:
-            # For delta X2(0)
-
-            predictors_1 = torch.hstack((self.X1, self.Y1))
-            predictors_2 = torch.hstack((self.X1))
-            for i in range(self.X2.shape[1]):
-                # Estimate delta X equation by LASSO
-                self.learner_x.fit(self.delta_X[:,i:i+1], predictors_1, self.D)
-                # Estimate delta X2(0)
-                dX2_0_hat = self.learner_x.predict(predictors_1, self.D * 0)
-                predictors_2 = torch.hstack((predictors_2, dX2_0_hat))
-
-            # For delta Y(0)
-
-            # Estimate delta Y equation by LASSO
-            self.learner_f.fit(self.delta_Y, predictors_2, self.D)
-            # Estimate delta Y(0)
-            dY_0_hat = self.learner_f.predict(predictors_2, self.D * 0)
-
-            # Estimate ATT
-            self.theta0 = (self.delta_Y[self.D.squeeze() == 1]) - (dY_0_hat[self.D.squeeze() == 1])
 
         # # With LASSO package
         # if self.Z is None:
@@ -123,8 +123,6 @@ class Trainer:
         # # With LASSO package
         # if self.Z is not None:
         #     # For delta X2(0)
-
-        #     pdb.set_trace()
 
         #     predictors_1 = torch.hstack((self.Z, self.X1, self.Y1))
         #     predictors_2 = torch.hstack((self.Z, self.X1))

@@ -411,7 +411,7 @@ class Trainer_all:
 
         # LASSO
         # Estimate a1
-        a_prev_1 = self.D / torch.mean(self.D.float())
+        a_prev_1 = torch.ones(self.Y1.shape)
         self.learners_a_LASSO[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_LASSO[0].predict(predictors_1, self.D)
@@ -419,7 +419,7 @@ class Trainer_all:
 
         # RF
         # Estimate a1
-        a_prev_1 = self.D / torch.mean(self.D.float())
+        a_prev_1 = torch.ones(self.Y1.shape)
         self.learners_a_RF[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_RF[0].predict(predictors_1, self.D)
@@ -427,7 +427,7 @@ class Trainer_all:
         
         # Net
         # Estimate a1
-        a_prev_1 = self.D / torch.mean(self.D.float())
+        a_prev_1 = torch.ones(self.Y1.shape)
         self.learners_a_Net[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_Net[0].predict(predictors_1, self.D)
