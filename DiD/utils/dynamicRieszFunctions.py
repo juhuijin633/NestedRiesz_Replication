@@ -135,8 +135,12 @@ def thetahat(learners_f, learners_a, Y1, Y2, D, Z, X1, X2):
     Can delete the RR
     """
         
-    predictors_1 = torch.hstack((Z, X1, Y1))
-    predictors_2 = torch.hstack((Z, X1, X2))
+    if torch.all(Z == 0):
+        predictors_2 = torch.hstack((X1, X2))
+        predictors_1 = torch.hstack((X1, Y1))
+    else:
+        predictors_1 = torch.hstack((Z, X1, Y1))
+        predictors_2 = torch.hstack((Z, X1, X2))
 
     RR1 = torch.zeros(D.shape[0],1)
     RR2 = torch.zeros(D.shape[0],1)
@@ -168,7 +172,6 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
     fold_results = torch.zeros(Y1.shape)
     RR1 = torch.zeros(Y1.shape)
     RR2 = torch.zeros(Y1.shape)
- 
 
     # Iterate through folds
     kf = KFold(n_splits=folds, shuffle=True, random_state=42)
@@ -195,9 +198,7 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
 
         # Predict theta for every observation in the test data
         fold_results[test_index], RR1[test_index], RR2[test_index] = thetahat(trainer.learners_f, trainer.learners_a, Y1_test, Y2_test, D_test, Z_test, X1_test, X2_test)   
-        # Inside the loop after trainer.train()
-        predictors_2_test = torch.hstack((Z_test, X1_test, X2_test))
-
+        
     point = torch.mean(fold_results)
     sigma2 = torch.mean( (fold_results - point) ** 2 )
     sigma = torch.sqrt(sigma2)
@@ -255,24 +256,43 @@ class Trainer:
             self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings = net_a_settings) for _ in range(self.T)]
 
     def train(self):
+        if torch.all(self.Z == 0):
+            predictors_2 = torch.hstack((self.X1, self.X2))
+            predictors_1 = torch.hstack((self.X1, self.Y1))
 
-        predictors_2 = torch.hstack((self.Z, self.X1, self.X2))
-        predictors_1 = torch.hstack((self.Z, self.X1, self.Y1))
+            # Estimate f2
+            self.learners_f[1].fit(self.delta_Y, predictors_2, self.D)
+            
+            # Estimate f1
+            f2_hat = self.learners_f[1].predict(predictors_2, self.D * 0)
+            self.learners_f[0].fit(f2_hat, predictors_1, self.D)
 
-        # Estimate f2
-        self.learners_f[1].fit(self.delta_Y, predictors_2, self.D)
-        
-        # Estimate f1
-        f2_hat = self.learners_f[1].predict(predictors_2, self.D * 0)
-        self.learners_f[0].fit(f2_hat, predictors_1, self.D)
+            # Estimate a1
+            a_prev_1 = self.D / torch.mean(self.D.float())
+            self.learners_a[0].fit(predictors_1, self.D, a_prev_1)
 
-        # Estimate a1
-        a_prev_1 = torch.ones(self.Y1.shape)
-        self.learners_a[0].fit(predictors_1, self.D, a_prev_1)
+            # Estimate a2
+            a_prev_2 = self.learners_a[0].predict(predictors_1, self.D)
+            self.learners_a[1].fit(predictors_2, self.D, a_prev_2)
+        else:
+            predictors_2 = torch.hstack((self.Z, self.X1, self.X2))
+            predictors_1 = torch.hstack((self.Z, self.X1, self.Y1))
 
-        # Estimate a2
-        a_prev_2 = self.learners_a[0].predict(predictors_1, self.D)
-        self.learners_a[1].fit(predictors_2, self.D, a_prev_2)
+            # Estimate f2
+            self.learners_f[1].fit(self.delta_Y, predictors_2, self.D)
+            
+            # Estimate f1
+            f2_hat = self.learners_f[1].predict(predictors_2, self.D * 0)
+            self.learners_f[0].fit(f2_hat, predictors_1, self.D)
+
+            # Estimate a1
+            a_prev_1 = self.D / torch.mean(self.D.float())
+            self.learners_a[0].fit(predictors_1, self.D, a_prev_1)
+
+            # Estimate a2
+            a_prev_2 = self.learners_a[0].predict(predictors_1, self.D)
+            self.learners_a[1].fit(predictors_2, self.D, a_prev_2)
+
 
 
 def estimateDynamicRiesz_all(Y1, Y2, D, X1, X2, Z, folds,
@@ -391,7 +411,7 @@ class Trainer_all:
 
         # LASSO
         # Estimate a1
-        a_prev_1 = torch.ones(self.Y1.shape)
+        a_prev_1 = self.D / torch.mean(self.D.float())
         self.learners_a_LASSO[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_LASSO[0].predict(predictors_1, self.D)
@@ -399,7 +419,7 @@ class Trainer_all:
 
         # RF
         # Estimate a1
-        a_prev_1 = torch.ones(self.Y1.shape)
+        a_prev_1 = self.D / torch.mean(self.D.float())
         self.learners_a_RF[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_RF[0].predict(predictors_1, self.D)
@@ -407,7 +427,7 @@ class Trainer_all:
         
         # Net
         # Estimate a1
-        a_prev_1 = torch.ones(self.Y1.shape)
+        a_prev_1 = self.D / torch.mean(self.D.float())
         self.learners_a_Net[0].fit(predictors_1, self.D, a_prev_1)
         # Estimate a2
         a_prev_2 = self.learners_a_Net[0].predict(predictors_1, self.D)
