@@ -197,13 +197,12 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
         fold_results[test_index], RR1[test_index], RR2[test_index] = thetahat(trainer.learners_f, trainer.learners_a, Y1_test, Y2_test, D_test, Z_test, X1_test, X2_test)   
         # Inside the loop after trainer.train()
         predictors_2_test = torch.hstack((Z_test, X1_test, X2_test))
-        propensity_scores[test_index] = trainer.learners_a[1].predict(predictors_2_test, D_test)
 
     point = torch.mean(fold_results)
     sigma2 = torch.mean( (fold_results - point) ** 2 )
     sigma = torch.sqrt(sigma2)
     
-    return point, sigma, RR1, RR2, propensity_scores
+    return point, sigma, RR1, RR2
 
 class Trainer: 
     def __init__(self, Y1, Y2, D, Z, X1, X2,
