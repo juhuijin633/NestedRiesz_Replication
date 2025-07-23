@@ -149,16 +149,21 @@ def thetahat(learners_f, learners_a, Y, G, X, D, S):
     pi = (1 - G) / torch.mean((1 - G.float()))
 
     # First the estimate of Yi(1)
-    theta = pi * (learners_f[0].predict(predictors_1, d1_1)) 
+    #theta = pi * (learners_f[0].predict(predictors_1, d1_1)) 
+    theta = pi * (learners_f[0].predict(predictors_1, torch.ones(D.shape))) 
 
-    theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, rr_variables_1))
+
+    #theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, rr_variables_1))
+    theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, D))
 
     theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
 
     # Now add the estimate of Yi(0)
-    theta -= pi * (learners_f[0].predict(predictors_1, d1_0))      
+    #theta -= pi * (learners_f[0].predict(predictors_1, d1_0))      
+    theta -= pi * (learners_f[0].predict(predictors_1, torch.zeros(D.shape)))      
 
-    theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, rr_variables_1))
+    #theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, rr_variables_1))
+    theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, D))
 
     theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
 
@@ -266,12 +271,17 @@ class Trainer:
         d2 = torch.ones(rr_variables_2.shape)
         d1_0 = torch.zeros(rr_variables_1.shape)
 
-        # Estimate f2
+        # Estimate f2, only on the dataset with  G=1, meaning this is really odd
         self.learners_f[1].fit(self.Y, predictors_2, rr_variables_2)
         
         # Estimate f1
         f2_hat = self.learners_f[1].predict(predictors_2, d2)
-        self.learners_f[0].fit(f2_hat, predictors_1, rr_variables_1)
+        #self.learners_f[0].fit(f2_hat, predictors_1, rr_variables_1)
+
+        mask = (1 - self.G).bool().squeeze()
+
+        self.learners_f[0].fit(f2_hat[mask], predictors_1[mask], self.D[mask])
+
 
         # Estimate a1^1
         a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.float())
