@@ -5,6 +5,8 @@ import torch
 import numpy as np
 from sklearn.model_selection import KFold
 import pdb
+from sklearn.linear_model import Lasso
+from sklearn.ensemble import RandomForestRegressor
 
 lasso_a_settings_global = {
     'lambda_val' : 0,
@@ -121,7 +123,7 @@ net_f_settings_global = {
     'act_func' : 'elu'
 }
 
-def thetahat(learners_f, learners_a, Y, G, X, D, S):
+def thetahat(learners_f, learners_a, Y, G, X, D, S, subsetting = False):
     """
     This function gives the estimate for theta. 
     
@@ -146,7 +148,7 @@ def thetahat(learners_f, learners_a, Y, G, X, D, S):
     d2_0 = torch.ones(rr_variables_2.shape)
 
 
-    pi = (1 - G) / torch.mean((1 - G.float()))
+    pi = (1 - G) / torch.mean((1 - G.double()))
 
     # First the estimate of Yi(1)
     #theta = pi * (learners_f[0].predict(predictors_1, d1_1)) 
@@ -154,22 +156,33 @@ def thetahat(learners_f, learners_a, Y, G, X, D, S):
 
 
     #theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, rr_variables_1))
-    theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, D))
+    if subsetting:
+        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2)) - learners_f[0].predict(predictors_1, D))
+        theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)))
 
-    theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
+    else:
+        print(learners_a[0].predict(predictors_1, rr_variables_1).shape)
+        print(learners_f[1].predict(predictors_2, d2_1).shape)
+        print(learners_f[0].predict(predictors_1, D).shape)
+        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, D))
+        theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
+
+    
 
     # Now add the estimate of Yi(0)
     #theta -= pi * (learners_f[0].predict(predictors_1, d1_0))      
     theta -= pi * (learners_f[0].predict(predictors_1, torch.zeros(D.shape)))      
 
-    #theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, rr_variables_1))
-    theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, D))
-
-    theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
+    if subsetting:
+        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2))- learners_f[0].predict(predictors_1, D))
+        theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)))
+    else:
+        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, D))
+        theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
 
     # pdb.set_trace()
 
-    return theta
+    return theta.float()
 
 def estimateDynamicRiesz(Y, G, X, D, S, folds,
                           method_a = "LASSO", method_f = "LASSO",
@@ -178,9 +191,9 @@ def estimateDynamicRiesz(Y, G, X, D, S, folds,
                                         rf_a_settings = rf_a_settings_global,
                                             rf_f_settings = rf_f_settings_global,
                                                 net_a_settings = net_a_settings_global,
-                                                    net_f_settings = net_f_settings_global, seed = None):
+                                                    net_f_settings = net_f_settings_global, seed = None, subsetting = False):
         
-    fold_results = torch.zeros(Y.shape)
+    fold_results = torch.zeros(Y.shape, dtype=torch.float64)
 
     # Iterate through folds
     kf = KFold(n_splits=folds, shuffle=True, random_state=42)
@@ -201,17 +214,17 @@ def estimateDynamicRiesz(Y, G, X, D, S, folds,
                                         rf_a_settings = rf_a_settings,
                                             rf_f_settings = rf_f_settings,
                                                 net_a_settings = net_a_settings,
-                                                    net_f_settings = net_f_settings, seed = seed)
+                                                    net_f_settings = net_f_settings, seed = seed, subsetting = subsetting)
         trainer.train()
 
         # Predict theta for every observation in the test data
-        fold_results[test_index] = thetahat(trainer.learners_f, trainer.learners_a, Y_test, G_test, X_test, D_test, S_test )   
-        
+        fold_results[test_index] = thetahat(trainer.learners_f, trainer.learners_a, Y_test, G_test, X_test, D_test, S_test, subsetting= subsetting ).double()   
+
     point = torch.mean(fold_results)
     sigma2 = torch.mean( (fold_results - point) ** 2 )
     sigma = torch.sqrt(sigma2)
     
-    return point, sigma
+    return point, sigma, fold_results
 
 class Trainer: 
     def __init__(self, Y, G, X, D, S,
@@ -222,7 +235,7 @@ class Trainer:
                                 rf_f_settings = rf_f_settings_global,
                                     net_a_settings = net_a_settings_global,
                                         net_f_settings = net_f_settings_global, 
-                                        seed = None):
+                                        seed = None, subsetting = False):
                 
         """
         Dictionary mapping function 
@@ -240,20 +253,30 @@ class Trainer:
         self.D = D
         self.S = S
         self.T = 2
+        self.method_f = method_f
+        self.method_a = method_a
+        self.subsetting = subsetting
 
         # initalise trainers for f functions
         if method_f == 'LASSO':
             lasso_f_settings["seed"] = seed
-            self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings) for _ in range(self.T)]
+            if subsetting: # include a different estimator for f2
+                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings), Lasso(random_state = seed)]
+            else:
+                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings = lasso_f_settings) for _ in range(self.T)]
         if method_f == 'RF':
             rf_f_settings["random_state"] = seed
-            self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings) for _ in range(self.T)]
+            if subsetting:
+                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings), RandomForestRegressor(random_state= seed)]
+            else:
+                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings) for _ in range(self.T)]
         if method_f == 'Net':
             self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings) for _ in range(self.T)]
         
         # initalise trainers for a functions
         if method_a == "LASSO":
             lasso_a_settings["seed"] = seed
+
             self.learners_a = [utils.dynamicRieszLASSO.Learner_a_LASSO(lasso_a_settings = lasso_a_settings) for _ in range(self.T * 2)]
         if method_a == "RF":
             rf_a_settings["random_state"] = seed
@@ -270,21 +293,31 @@ class Trainer:
         d1_1 = torch.tensor([0, 1]).repeat(rr_variables_1.shape[0], 1)
         d2 = torch.ones(rr_variables_2.shape)
         d1_0 = torch.zeros(rr_variables_1.shape)
+        # Estimate f2, only on the dataset with  G=1,#
+        mask_G0 = (1 - self.G).bool().squeeze()
+        mask_G1 =  self.G.bool().squeeze()
+        #self.learners_f[1].fit(self.Y[mask_G1], predictors_2[mask_G1], rr_variables_2[mask_G1])
+        if self.subsetting:
+            self.learners_f[1].fit(predictors_2[mask_G1], self.Y[mask_G1].ravel())
+        else:
+            self.learners_f[1].fit(self.Y, predictors_2, rr_variables_2)
 
-        # Estimate f2, only on the dataset with  G=1, meaning this is really odd
-        self.learners_f[1].fit(self.Y, predictors_2, rr_variables_2)
-        
+
         # Estimate f1
-        f2_hat = self.learners_f[1].predict(predictors_2, d2)
-        #self.learners_f[0].fit(f2_hat, predictors_1, rr_variables_1)
+        if self.subsetting:
+            f2_hat = torch.tensor(self.learners_f[1].predict(predictors_2))
+        else:
+            f2_hat = self.learners_f[1].predict(predictors_2, d2)
 
-        mask = (1 - self.G).bool().squeeze()
-
-        self.learners_f[0].fit(f2_hat[mask], predictors_1[mask], self.D[mask])
+        if self.subsetting:
+            self.learners_f[0].fit(f2_hat[mask_G0], predictors_1[mask_G0], self.D[mask_G0])
+        else:
+            self.learners_f[0].fit(f2_hat, predictors_1, rr_variables_1)
 
 
         # Estimate a1^1
-        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.float())
+        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.double())
+        #self.learners_a[0].fit(predictors_1[mask_G0], rr_variables_1[mask_G0], d1_1[mask_G0], a_prev_1[mask_G0]) # does not work
         self.learners_a[0].fit(predictors_1, rr_variables_1, d1_1, a_prev_1)
 
         # Estimate a2^1
@@ -292,8 +325,9 @@ class Trainer:
         self.learners_a[1].fit(predictors_2, rr_variables_2, d2, a_prev_21)
 
         # Estimate a1^0
-        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.float())
+        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.double())
         self.learners_a[2].fit(predictors_1, rr_variables_1, d1_0, a_prev_1)
+        #self.learners_a[2].fit(predictors_1[mask_G0], rr_variables_1[mask_G0], d1_0[mask_G0], a_prev_1[mask_G0]) # does not work
 
         # Estimate a2^0
         a_prev_20 = self.learners_a[2].predict(predictors_1, rr_variables_1)

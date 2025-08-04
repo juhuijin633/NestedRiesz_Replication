@@ -108,7 +108,7 @@ def RMD_lasso(M, G, D_matrix, lambda_val=0, control={'maxIter': 1000, 'optTol': 
     D_matrix = D_matrix.numpy()
     
     p = Gt.shape[1]
-    L = torch.hstack((torch.tensor(c3).float(),torch.ones(p-1))).reshape(-1,1)
+    L = torch.hstack((torch.tensor(c3).double(),torch.ones(p-1))).reshape(-1,1)
     lambda_vec = (lambda_val * L * D_matrix).numpy()
     
     beta = np.zeros((p,1)) if (beta_start == None) else beta_start
@@ -144,7 +144,7 @@ def RMD_lasso(M, G, D_matrix, lambda_val=0, control={'maxIter': 1000, 'optTol': 
     w = beta
     w[np.abs(w) < control['zeroThreshold']] = 0
 
-    return {'coefficients': torch.tensor(beta).float(), 'coef_list': wp, 'num_it': mm}
+    return {'coefficients': torch.tensor(beta).double(), 'coef_list': wp, 'num_it': mm}
 
 def RMD_stable(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, control, beta_start):
     
@@ -156,7 +156,7 @@ def RMD_stable(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, cont
     X0 = X[:, :p0]
     M_hat0, G_hat0 = get_MG(X0, D, d, a_prev, b_func)    
         
-    rho_hat = torch.linalg.solve(G_hat0, M_hat0.float())
+    rho_hat = torch.linalg.solve(G_hat0, M_hat0.double())
     rho_hat = torch.vstack((rho_hat, torch.zeros(p - G_hat0.shape[0],1)))
     
     M_hat, G_hat = get_MG(X, D, d, a_prev, b_func)
@@ -248,19 +248,19 @@ class b_polynomial:
 
         # Generate interactions for X
         poly = PolynomialFeatures(degree=self.degree, interaction_only=False, include_bias=False)
-        X_poly = torch.tensor(poly.fit_transform(X)).float()
+        X_poly = torch.tensor(poly.fit_transform(X)).double()
 
         #Generate interactions between D:
         n_D = D.shape[1]  # Number of features from D
         D_interacted = D.clone()
-        if n_D > 1:
-            for r in range(2, n_D + 1):
-                for comb in combinations(range(n_D), r):
-                    # Create the interaction term by multiplying the selected columns
-                    interaction_term = torch.ones(D.shape[0],1)
-                    for idx in comb:
-                        interaction_term *= D[:, idx:idx+1]
-                    D_interacted = torch.hstack((D_interacted, interaction_term))
+        # if n_D > 1:
+        #     for r in range(2, n_D + 1):
+        #         for comb in combinations(range(n_D), r):
+        #             # Create the interaction term by multiplying the selected columns
+        #             interaction_term = torch.ones(D.shape[0],1)
+        #             for idx in comb:
+        #                 interaction_term *= D[:, idx:idx+1]
+        #             D_interacted = torch.hstack((D_interacted, interaction_term))
 
         # Now interact all X polynomials with all D interactions terms
         interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)

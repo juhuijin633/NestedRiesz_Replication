@@ -97,7 +97,7 @@ def get_D(X, D, d, a_prev, b_func, rho_hat): #Here I have removed the m function
     """
 
     b_val = b_func(X,D)
-    term = ((b_val * (b_val * rho_hat.t()).sum(1).reshape(-1,1)) - m(X, d, a_prev, b_func)) ** 2
+    term = ((b_val * (b_val * rho_hat.t()).sum(1).view(-1, 1)) - m(X, d, a_prev, b_func)) ** 2
     
     return torch.sqrt(torch.mean(term,0).reshape(-1,1))  
 
@@ -149,7 +149,7 @@ def RMD_lasso(M, G, D_matrix, lambda_val=0, control={'maxIter': 1000, 'optTol': 
 def RMD_stable(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, control, beta_start):
     
     n = D.shape[0]
-    p = b_func(X[0], D[0]).shape[1]
+    p = b_func(X, D).shape[1]
     
     p0 = int(np.ceil(X.shape[1] / 4)) 
 
@@ -158,7 +158,7 @@ def RMD_stable(X, D, d, a_prev, b_func, D_LB, D_add, max_iter, c1, c2, tol, cont
         
     rho_hat = torch.linalg.solve(G_hat0, M_hat0.float())
     rho_hat = torch.vstack((rho_hat, torch.zeros(p - G_hat0.shape[0],1)))
-    
+
     M_hat, G_hat = get_MG(X, D, d, a_prev, b_func)
     
     lambda_val = c1 * norm.ppf(1 - c2 / (2 * p)) / np.sqrt(n)
@@ -232,8 +232,9 @@ class b_polynomial:
         
         self.degree = degree
         self.standardization = None
+        self.fitted = None
         
-    def b_poly(self, X, D):
+    def b_poly(self, X, D, prediction_time = False):
 
         """
         Generates polynomial and interaction terms for LASSO regression.
@@ -247,8 +248,12 @@ class b_polynomial:
             D = D.reshape(1,-1)
 
         # Generate interactions for X
-        poly = PolynomialFeatures(degree=self.degree, interaction_only=False, include_bias=False)
-        X_poly = torch.tensor(poly.fit_transform(X)).float()
+        if prediction_time:
+            X_poly =  torch.tensor(self.fitted.transform(X)).float()
+        else:
+            poly = PolynomialFeatures(degree=self.degree, interaction_only=False, include_bias=False)
+            X_poly = torch.tensor(poly.fit_transform(X)).float()
+            self.fitted = poly
 
         #Generate interactions between D:
         n_D = D.shape[1]  # Number of features from D
@@ -352,7 +357,7 @@ class Learner_a_LASSO:
         D (nxt) : history of all treatment assignments up to time t.
         """
 
-        return torch.sum(self.b_func(X,D) * self.rho_hat.t(),1).reshape(-1,1)
+        return torch.sum(self.b_func(X,D, prediction_time= True) * self.rho_hat.t(),1).reshape(-1,1)
       
 class Learner_f_LASSO:
 
@@ -419,6 +424,8 @@ class Learner_f_LASSO:
         X (nx(p1,...pT) : history of all covariates up to time t.
         D (nxt) : history of all treatment assignments up to time t.
         """
+        print(self.b_func(X,D, prediction_time= True).shape)
+        print(self.rho_hat.shape)
 
-        return torch.sum(self.b_func(X,D) * self.rho_hat.t(),1).reshape(-1,1)
+        return torch.sum(self.b_func(X,D, prediction_time= True) * self.rho_hat.t(),1).reshape(-1,1)
     
