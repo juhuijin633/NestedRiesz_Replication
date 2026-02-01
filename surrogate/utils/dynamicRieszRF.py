@@ -76,15 +76,14 @@ def b_poly(X, D, degree = 1):
     #Generate interactions between D:
     n_D = D.shape[1]  # Number of features from D
     D_interacted = D.clone()
-    if n_D > 1:
-        for r in range(2, n_D + 1):
-            for comb in combinations(range(n_D), r):
-                # Create the interaction term by multiplying the selected columns
-                interaction_term = torch.ones(D.shape[0],1)
-                for idx in comb:
-                    interaction_term *= D[:, idx:idx+1]
-                D_interacted = torch.hstack((D_interacted, interaction_term))
-
+    #if n_D > 1:
+    #    for r in range(2, n_D + 1):
+    #        for comb in combinations(range(n_D), r):
+     #           # Create the interaction term by multiplying the selected columns
+      #          interaction_term = torch.ones(D.shape[0],1)
+       #         for idx in comb:
+        #            interaction_term *= D[:, idx:idx+1]
+                #D_interacted = torch.hstack((D_interacted, interaction_term))
     if degree == 0:
         return torch.hstack((torch.ones(D.shape[0],1), D_interacted)).numpy()
     else:
@@ -92,8 +91,8 @@ def b_poly(X, D, degree = 1):
             poly = PolynomialFeatures(degree=degree, interaction_only=False, include_bias=False)
             X_poly = torch.tensor(poly.fit_transform(X)).float()
 
-            interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)
-
+            #interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)
+            return torch.hstack((torch.ones(D.shape[0],1), X_poly, D_interacted)).numpy()
             return torch.hstack((torch.ones(D.shape[0],1), X_poly, D_interacted, interactions_XD)).numpy()
 
 def b_poly_f(X, D, degree = 1):

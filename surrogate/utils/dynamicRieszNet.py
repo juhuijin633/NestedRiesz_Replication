@@ -92,8 +92,8 @@ class Learner_a_Net:
 
     def fit(self, X, D, d, a_prev):
         
-        DX = torch.hstack((D, X))
-        dX = torch.hstack((d, X))
+        DX = torch.hstack((D, X)).float()
+        dX = torch.hstack((d, X)).float()
 
         if self.test_split > 0:
             DX_train, DX_test, dX_train, dX_test, a_prev_train, a_prev_test = train_test_split(DX, dX, a_prev, test_size = self.test_split)
@@ -124,7 +124,7 @@ class Learner_a_Net:
                 model_dir=str(Path.home()), device=self.net_a_settings['device'])
 
     def predict(self, X, D, *, model='final'):
-        DX = torch.hstack((D, X))
+        DX = torch.hstack((D, X)).float()
         output = self.learner_a.predict(DX, model=model)
         if not torch.is_tensor(output):
             output = torch.tensor(output).float()
@@ -342,9 +342,12 @@ class Learner_f_Net:
         self.n_hidden = net_f_settings['n_hidden']
         self.drop_prob = net_f_settings['drop_prob']
 
-    def fit(self, y, X, D):
-
-        DX = torch.hstack((D, X))
+    def fit(self, y, X, D = None):
+        
+        if D == None:
+            DX = torch.hstack([X]).float()
+        else:
+            DX = torch.hstack((D, X)).float()
 
         if self.test_split > 0:
             DX_train, DX_test, y_train, y_test = train_test_split(DX, y, test_size = self.test_split)
@@ -370,8 +373,11 @@ class Learner_f_Net:
                 **train_opt,
                 model_dir=str(Path.home()), device=self.net_f_settings['device'])
 
-    def predict(self, X, D, *, model='final'):
-        DX = torch.hstack((D, X))
+    def predict(self, X, D = None, *, model='final'):
+        if D == None:
+            DX = torch.hstack([X]).float()
+        else:
+            DX = torch.hstack((D, X)).float()
         output = self.learner_f.predict(DX, model=model)
         if not torch.is_tensor(output):
             output = torch.tensor(output).float()

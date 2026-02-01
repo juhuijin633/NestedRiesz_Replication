@@ -58,8 +58,7 @@ def m(X, d, a_prev, b_func):
     
     b_func (function (X, D)) : The LASSO mapping function
     """
-
-    return a_prev * b_func(X, d)
+    return a_prev.reshape(-1, 1)* b_func(X, d)
 
 def get_MG(X, D, d, a_prev, b_func):
     
@@ -93,12 +92,11 @@ def get_D(X, D, d, a_prev, b_func, rho_hat): #Here I have removed the m function
     a_prev (nx1) : The previous iteration of the RR function. a_(t-1) ( X_t-1, D_t-1 ). Not the function, but the actual predicted values.
     
     b_func (function (X, D)) : The LASSO mapping function
-    rho_hat (px1) : the current parameters of the LASSO 
+    rho_hat (px1) : the current parameters of the LASSO ☺☺a
     """
 
     b_val = b_func(X,D)
     term = ((b_val * (b_val * rho_hat.t()).sum(1).reshape(-1,1)) - m(X, d, a_prev, b_func)) ** 2
-    
     return torch.sqrt(torch.mean(term,0).reshape(-1,1))  
 
 def RMD_lasso(M, G, D_matrix, lambda_val=0, control={'maxIter': 1000, 'optTol': 1e-5, 'zeroThreshold': 1e-6}, beta_start=None, c3=0.1):
@@ -253,24 +251,25 @@ class b_polynomial:
         #Generate interactions between D:
         n_D = D.shape[1]  # Number of features from D
         D_interacted = D.clone()
-        # if n_D > 1:
-        #     for r in range(2, n_D + 1):
-        #         for comb in combinations(range(n_D), r):
-        #             # Create the interaction term by multiplying the selected columns
-        #             interaction_term = torch.ones(D.shape[0],1)
-        #             for idx in comb:
-        #                 interaction_term *= D[:, idx:idx+1]
-        #             D_interacted = torch.hstack((D_interacted, interaction_term))
+        #if n_D > 1:
+        #    for r in range(2, n_D + 1):
+        #        for comb in combinations(range(n_D), r):
+        #            # Create the interaction term by multiplying the selected columns
+        #            interaction_term = torch.ones(D.shape[0],1)
+        #            for idx in comb:
+        #                interaction_term *= D[:, idx:idx+1]
+        #            D_interacted = torch.hstack((D_interacted, interaction_term))
 
         # Now interact all X polynomials with all D interactions terms
         interactions_XD = (X_poly.unsqueeze(2) * D_interacted.unsqueeze(1)).reshape(X_poly.shape[0],-1)
 
         # # Check for collinearity in interactions
-        # columns_fully_zero = ~(interactions_XD.abs().sum(dim=0) == 0)
-        # columns_equal_vector = ~torch.all(interactions_XD == D, dim=0)
-        # interactions_XD = interactions_XD[:, columns_fully_zero & columns_equal_vector]
-
+        #columns_fully_zero = ~(interactions_XD.abs().sum(dim=0) == 0)
+        #columns_equal_vector = ~torch.all(interactions_XD == D, dim=0)
+        #interactions_XD = interactions_XD[:, columns_fully_zero & columns_equal_vector]
+        
         full_covariates = torch.hstack((X_poly, D_interacted, interactions_XD))
+
 
         if (self.standardization is None):
             return full_covariates

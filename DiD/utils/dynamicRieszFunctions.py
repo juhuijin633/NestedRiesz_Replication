@@ -49,7 +49,7 @@ rf_a_settings_global = {
     'inference' : True,
     'fit_intercept' : True,
     'subforest_size' : 4,
-    'n_jobs' : -1,
+    'n_jobs' : 1,
     'random_state' : None,
     'verbose' : 0,
     'warm_start' : False
@@ -73,7 +73,7 @@ rf_f_settings_global = {
     'inference' : True,
     'fit_intercept' : True,
     'subforest_size' : 4,
-    'n_jobs' : -1,
+    'n_jobs' : 1,
     'random_state' : None,
     'verbose' : 0,
     'warm_start' : False
@@ -174,7 +174,7 @@ def estimateDynamicRiesz(Y1, Y2, D, Z, X1, X2, folds,
     RR2 = torch.zeros(Y1.shape)
 
     # Iterate through folds
-    kf = KFold(n_splits=folds, shuffle=True, random_state=42)
+    kf = KFold(n_splits=folds, shuffle=True, random_state=seed)
     for fold, (train_index, test_index) in enumerate(kf.split(Y1)):
 
         # Splitting data
@@ -243,6 +243,7 @@ class Trainer:
             rf_f_settings["random_state"] = seed
             self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings) for _ in range(self.T)]
         if method_f == 'Net':
+            torch.manual_seed(seed)
             self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings) for _ in range(self.T)]
         
         # initalise trainers for a functions
@@ -253,6 +254,7 @@ class Trainer:
             rf_a_settings["random_state"] = seed
             self.learners_a = [utils.dynamicRieszRF.Learner_a_RF(rf_a_settings = rf_a_settings) for _ in range(self.T)]
         if method_a == "Net":
+            torch.manual_seed(seed)
             self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings = net_a_settings) for _ in range(self.T)]
 
     def train(self):
@@ -268,7 +270,7 @@ class Trainer:
             self.learners_f[0].fit(f2_hat, predictors_1, self.D)
 
             # Estimate a1
-            a_prev_1 = torch.ones(self.Y1.shape)
+            a_prev_1 = self.D / torch.mean(self.D.float())
             self.learners_a[0].fit(predictors_1, self.D, a_prev_1)
 
             # Estimate a2
@@ -286,7 +288,7 @@ class Trainer:
             self.learners_f[0].fit(f2_hat, predictors_1, self.D)
 
             # Estimate a1
-            a_prev_1 = torch.ones(self.Y1.shape)
+            a_prev_1 = self.D / torch.mean(self.D.float())
             self.learners_a[0].fit(predictors_1, self.D, a_prev_1)
 
             # Estimate a2

@@ -151,34 +151,43 @@ def thetahat(learners_f, learners_a, Y, G, X, D, S, subsetting = False):
     pi = (1 - G) / torch.mean((1 - G.double()))
 
     # First the estimate of Yi(1)
-    #theta = pi * (learners_f[0].predict(predictors_1, d1_1)) 
-    theta = pi * (learners_f[0].predict(predictors_1, torch.ones(D.shape))) 
+    if subsetting:
+        theta = pi * (learners_f[0].predict(predictors_1, torch.ones(D.shape))) 
+    else:
+        theta = pi * (learners_f[0].predict(predictors_1, d1_1)) 
 
 
     #theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, rr_variables_1))
-    if subsetting:
-        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2)) - learners_f[0].predict(predictors_1, D))
-        theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)))
+    if subsetting: 
+        #theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2)) - learners_f[0].predict(predictors_1, D))
+        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2)).view(-1, 1) - learners_f[0].predict(predictors_1, D))
+        theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)).view(-1, 1))
 
     else:
-        print(learners_a[0].predict(predictors_1, rr_variables_1).shape)
-        print(learners_f[1].predict(predictors_2, d2_1).shape)
-        print(learners_f[0].predict(predictors_1, D).shape)
-        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, D))
+        #theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, D))
+        theta -= learners_a[0].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_1) - learners_f[0].predict(predictors_1, rr_variables_1))
         theta -= learners_a[1].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
 
     
 
     # Now add the estimate of Yi(0)
-    #theta -= pi * (learners_f[0].predict(predictors_1, d1_0))      
-    theta -= pi * (learners_f[0].predict(predictors_1, torch.zeros(D.shape)))      
+    if subsetting:#
+        theta -= pi * (learners_f[0].predict(predictors_1, torch.zeros(D.shape)))      
+    else:
+        theta -= pi * (learners_f[0].predict(predictors_1, d1_0))      
+    #
 
     if subsetting:
-        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2))- learners_f[0].predict(predictors_1, D))
-        theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)))
+        #theta += learners_a[2].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2))- learners_f[0].predict(predictors_1, D))
+        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (torch.tensor(learners_f[1].predict(predictors_2)).view(-1, 1)- learners_f[0].predict(predictors_1, D))
+
+        theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - torch.tensor(learners_f[1].predict(predictors_2)).view(-1, 1))
     else:
-        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, D))
+        #theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, D))
+        theta += learners_a[2].predict(predictors_1, rr_variables_1) * (learners_f[1].predict(predictors_2, d2_0) - learners_f[0].predict(predictors_1, rr_variables_1))
+
         theta += learners_a[3].predict(predictors_2, rr_variables_2) * ( (Y) - learners_f[1].predict(predictors_2, rr_variables_2))
+    
 
     # pdb.set_trace()
 
@@ -296,7 +305,7 @@ class Trainer:
         # Estimate f2, only on the dataset with  G=1,#
         mask_G0 = (1 - self.G).bool().squeeze()
         mask_G1 =  self.G.bool().squeeze()
-        #self.learners_f[1].fit(self.Y[mask_G1], predictors_2[mask_G1], rr_variables_2[mask_G1])
+
         if self.subsetting:
             self.learners_f[1].fit(predictors_2[mask_G1], self.Y[mask_G1].ravel())
         else:
@@ -317,17 +326,24 @@ class Trainer:
 
         # Estimate a1^1
         a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.double())
-        #self.learners_a[0].fit(predictors_1[mask_G0], rr_variables_1[mask_G0], d1_1[mask_G0], a_prev_1[mask_G0]) # does not work
-        self.learners_a[0].fit(predictors_1, rr_variables_1, d1_1, a_prev_1)
+        if self.subsetting:
+             self.learners_a[0].fit(predictors_1[mask_G0], self.D[mask_G0].view(-1,1), torch.ones(self.D[mask_G0].shape), torch.ones(self.D[mask_G0].shape))
+        else:
+            self.learners_a[0].fit(predictors_1, rr_variables_1, d1_1, a_prev_1)
+
+
 
         # Estimate a2^1
-        a_prev_21 = self.learners_a[0].predict(predictors_1, rr_variables_1)
-        self.learners_a[1].fit(predictors_2, rr_variables_2, d2, a_prev_21)
+        if self.subsetting:
+            a_prev_21 = self.learners_a[0].predict(predictors_1, rr_variables_1) 
+        else:
+            a_prev_21 = self.learners_a[0].predict(predictors_1, rr_variables_1)
+            self.learners_a[1].fit(predictors_2, rr_variables_2, d2, a_prev_21)
 
         # Estimate a1^0
         a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.double())
         self.learners_a[2].fit(predictors_1, rr_variables_1, d1_0, a_prev_1)
-        #self.learners_a[2].fit(predictors_1[mask_G0], rr_variables_1[mask_G0], d1_0[mask_G0], a_prev_1[mask_G0]) # does not work
+
 
         # Estimate a2^0
         a_prev_20 = self.learners_a[2].predict(predictors_1, rr_variables_1)
