@@ -4,6 +4,10 @@
 .RData
 .Ruserdata
 .DS_Store
-.csv
 *.Rproj
 *.pyc
+__pycache__/
+*.err
+*.out
+logs/
+.csv
