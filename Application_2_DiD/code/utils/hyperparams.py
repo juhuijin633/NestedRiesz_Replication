@@ -1,11 +1,7 @@
-"""Single source of truth for Application 1 learner hyperparameters and run config.
+"""Single source of truth for Application 2 learner hyperparameters and run config.
 
 All estimate scripts and utils modules import from here — do not duplicate
-these dicts elsewhere in Application_1_Surrogacy.
-
-Canonical learner values follow calc_estimates.py / application_fit_final.py:
-  lasso c1 = 0.1  (not "CV")
-  rf n_jobs = 1
+these dicts elsewhere in Application_2_DiD.
 """
 
 from __future__ import annotations
@@ -15,15 +11,20 @@ import copy
 import torch
 
 FOLDS = 5
-AUTO_SEED = 0  # application_fit_final.py — auto (Dynamic Riesz) estimators
-MANUAL_SEED = 123  # gains_app.ipynb — manual (NNPIV/DML) estimators
+SEED = 0  # final_application.ipynb dynamic_riesz_results default
 
-_lasso_common = {
+lasso_cv_settings = {
+    "b_degree": 1,
+    "cv_folds": FOLDS,
+    "random_state": 42,
+}
+
+_lasso = {
     "lambda_val": 0,
     "beta_start": None,
     "D_LB": 0,
     "D_add": 0.2,
-    "c1": 0.1,  # calc_estimates override; utils had "CV"
+    "c1": "CV",
     "c2": 0.1,
     "tol": 1e-5,
     "max_iter": 100,
@@ -31,16 +32,10 @@ _lasso_common = {
     "control": {"maxIter": 1000, "optTol": 1e-5, "zeroThreshold": 1e-6},
 }
 
-lasso_a_settings = copy.deepcopy(_lasso_common)
-lasso_f_settings = copy.deepcopy(_lasso_common)
+lasso_a_settings = copy.deepcopy(_lasso)
+lasso_f_settings = copy.deepcopy(_lasso)
 
-lasso_cv_settings = {
-    "b_degree": 1,
-    "cv_folds": 5,
-    "random_state": 42,
-}
-
-_rf_common = {
+_rf = {
     "l2": 0,
     "n_estimators": 100,
     "criterion": "mse",
@@ -58,16 +53,16 @@ _rf_common = {
     "inference": True,
     "fit_intercept": True,
     "subforest_size": 4,
-    "n_jobs": 1,  # calc_estimates override; utils had -1
+    "n_jobs": 1,
     "random_state": None,
     "verbose": 0,
     "warm_start": False,
 }
 
-rf_a_settings = {**_rf_common, "poly_degree": 0}
-rf_f_settings = {**_rf_common, "poly_degree": 1}
+rf_a_settings = {**_rf, "poly_degree": 0}
+rf_f_settings = {**_rf, "poly_degree": 1}
 
-_net_common = {
+_net = {
     "test_split": 0,
     "learner_lr": 1e-4,
     "learner_l2": 1e-3,
@@ -89,5 +84,5 @@ _net_common = {
     "act_func": "elu",
 }
 
-net_a_settings = copy.deepcopy(_net_common)
-net_f_settings = copy.deepcopy(_net_common)
+net_a_settings = copy.deepcopy(_net)
+net_f_settings = copy.deepcopy(_net)

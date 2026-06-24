@@ -1,6 +1,6 @@
 """Build summary tables and figures.
 
-Reads intermediate estimate CSVs from data/processed/:
+Reads estimate CSVs from results/intermediate/:
     auto_{outcome}_estimates.csv    — Auto-Lasso, Auto-RF, Auto-NN
     manual_{outcome}_estimates.csv  — Manual-Lasso, Manual-RF, Manual-NN
 
@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 APP_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = APP_DIR / "data" / "processed"
+INTERMEDIATE_DIR = APP_DIR / "results" / "intermediate"
 RESULTS_DIR = APP_DIR / "results"
 
 QUARTER = 6  # quarters of surrogate outcomes used in estimates
@@ -57,8 +57,8 @@ PLOT_OPTIONS = {
 
 
 def build_summary(application: str, quarter: int) -> pd.DataFrame:
-    auto = pd.read_csv(DATA_DIR / f"auto_{application}_estimates.csv")
-    manual = pd.read_csv(DATA_DIR / f"manual_{application}_estimates.csv")
+    auto = pd.read_csv(INTERMEDIATE_DIR / f"auto_{application}_estimates.csv")
+    manual = pd.read_csv(INTERMEDIATE_DIR / f"manual_{application}_estimates.csv")
     rows = []
 
     for name, (point, se) in BENCHMARKS[application].items():

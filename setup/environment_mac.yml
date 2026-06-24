@@ -140,3 +140,6 @@ dependencies:
       - unicodedata2==16.0.0
       - yarg==0.1.9
       - zipp==3.22.0
+
+      # Manual estimators (NNPIV/DML) — pinned commit from NNIPV/requirements.txt
+      - git+https://github.com/isaacmeza/NNPIV.git@18fefc2a397e5f4a586d1f68a6cb221efd53579b

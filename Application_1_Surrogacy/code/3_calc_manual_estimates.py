@@ -1,11 +1,13 @@
 """Manual (NNPIV / DML) estimators.
 
-Writes one CSV per outcome to data/processed/:
-    manual_{outcome}_estimates.csv
+Writes per-estimator CSVs to results/intermediate/ after each run:
+    manual_{outcome}_{estimator}.csv   e.g. manual_earn_Manual_Lasso.csv
 
-Each file holds long-run ATT point estimates and 95% CIs from the three
-NNPIV/DML estimators used in the figures (Manual-Lasso, Manual-RF, Manual-NN),
-using q quarters of surrogate outcomes.
+Replication policy (trimmed pipeline — three estimators only):
+  - Does NOT replay the full gains_app.ipynb sequence (TSLS, RKHS, sparse, etc.).
+  - seed_everything(MANUAL_SEED) runs before each computed method so results are stable
+    across full RUN.py vs resume-from-cache and do not depend on estimator order.
+  - MANUAL_SEED=123 matches gains_app.ipynb; values will differ from the original notebook.
 """
 
 from __future__ import annotations
@@ -22,15 +24,20 @@ from sklearn.linear_model import LogisticRegression
 from threadpoolctl import threadpool_limits
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 from nnpiv.ensemble import EnsembleIV
 from nnpiv.neuralnet.agmm import AGMM
 from nnpiv.semiparametrics import DML_longterm
 from nnpiv.tsls import regtsls
+from utils.hyperparams import FOLDS, MANUAL_SEED
 
 APP_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = APP_DIR / "data" / "processed"
+INTERMEDIATE_DIR = APP_DIR / "results" / "intermediate"
 
 PRETREAT_VARS = (
     [f"paid{i}" for i in range(1, 5)]
@@ -43,9 +50,7 @@ COVARIATES = [
     "hisp", "black", "age",
 ] + PRETREAT_VARS
 
-FOLDS = 5
 QUARTER = 6  # quarters of surrogate outcomes (earn1..earn6, etc.)
-SEED = 123  # matches gains_app.ipynb seed_everything(123)
 Z_SCORE = 1.96
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -163,8 +168,8 @@ MANUAL_ESTIMATORS = [
 ]
 
 
-def run_application(application: str, quarter: int) -> None:
-    seed_everything(SEED)
+def run_application(application: str, quarter: int, force: bool = False) -> None:
+    INTERMEDIATE_DIR.mkdir(parents=True, exist_ok=True)
     sample = load_sample(application, quarter)
     rows = []
     label = OUTCOME_LABELS[application]
@@ -172,13 +177,23 @@ def run_application(application: str, quarter: int) -> None:
     with threadpool_limits(1):
         try:
             torch.set_num_threads(1)
+            torch.set_num_interop_threads(1)
         except Exception:
             pass
 
         for est_label, fit_fn in MANUAL_ESTIMATORS:
+            slug = est_label.replace("-", "_")
+            intermediate = INTERMEDIATE_DIR / f"manual_{application}_{slug}.csv"
+
+            if intermediate.exists() and not force:
+                rows.append(pd.read_csv(intermediate).iloc[0].to_dict())
+                print(f"[{label}] {est_label} Complete.", flush=True)
+                continue
+
+            seed_everything(MANUAL_SEED)
             point, ci_lo, ci_hi = fit_fn(sample)
             se = (ci_hi - ci_lo) / (2 * Z_SCORE)
-            rows.append({
+            row = {
                 "outcome": application,
                 "quarter": quarter,
                 "estimator": est_label,
@@ -187,19 +202,22 @@ def run_application(application: str, quarter: int) -> None:
                 "se": se,
                 "ci_lower": ci_lo,
                 "ci_upper": ci_hi,
-            })
+            }
+            pd.DataFrame([row]).to_csv(intermediate, index=False)
+            rows.append(row)
             print(f"[{label}] {est_label} Complete.", flush=True)
 
-    out = DATA_DIR / f"manual_{application}_estimates.csv"
+    out = INTERMEDIATE_DIR / f"manual_{application}_estimates.csv"
     pd.DataFrame(rows).to_csv(out, index=False)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--applications", nargs="+", default=["earn", "employ"])
+    parser.add_argument("--force", action="store_true", help="Recompute even if cached CSVs exist.")
     args = parser.parse_args()
     for app in args.applications:
-        run_application(app, QUARTER)
+        run_application(app, QUARTER, force=args.force)
 
 
 if __name__ == "__main__":

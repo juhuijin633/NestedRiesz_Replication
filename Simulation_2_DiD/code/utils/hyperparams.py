@@ -1,11 +1,8 @@
-"""Single source of truth for Application 1 learner hyperparameters and run config.
+"""Learner hyperparameters for DiD simulations.
 
-All estimate scripts and utils modules import from here — do not duplicate
-these dicts elsewhere in Application_1_Surrogacy.
-
-Canonical learner values follow calc_estimates.py / application_fit_final.py:
-  lasso c1 = 0.1  (not "CV")
-  rf n_jobs = 1
+Canonical values from did/simulations/simulation_cluster.py.
+Per-replication randomness is NOT set here — it comes from seed=t passed
+at call time (see 1_run_simulation.py).
 """
 
 from __future__ import annotations
@@ -15,15 +12,13 @@ import copy
 import torch
 
 FOLDS = 5
-AUTO_SEED = 0  # application_fit_final.py — auto (Dynamic Riesz) estimators
-MANUAL_SEED = 123  # gains_app.ipynb — manual (NNPIV/DML) estimators
 
 _lasso_common = {
     "lambda_val": 0,
     "beta_start": None,
     "D_LB": 0,
     "D_add": 0.2,
-    "c1": 0.1,  # calc_estimates override; utils had "CV"
+    "c1": "CV",
     "c2": 0.1,
     "tol": 1e-5,
     "max_iter": 100,
@@ -36,7 +31,7 @@ lasso_f_settings = copy.deepcopy(_lasso_common)
 
 lasso_cv_settings = {
     "b_degree": 1,
-    "cv_folds": 5,
+    "cv_folds": FOLDS,
     "random_state": 42,
 }
 
@@ -58,8 +53,8 @@ _rf_common = {
     "inference": True,
     "fit_intercept": True,
     "subforest_size": 4,
-    "n_jobs": 1,  # calc_estimates override; utils had -1
-    "random_state": None,
+    "n_jobs": 1,
+    "random_state": None,  # set to replication seed t at fit time
     "verbose": 0,
     "warm_start": False,
 }

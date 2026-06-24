@@ -1,26 +1,51 @@
 """Automatic (Dynamic Riesz) estimators.
 
-Writes one CSV per outcome to data/processed/:
-    auto_{outcome}_estimates.csv
+Writes per-estimator CSVs to results/intermediate/ after each run:
+    auto_{outcome}_{estimator}.csv   e.g. auto_earn_Auto_Lasso.csv
 
-Each file holds long-run ATT point estimates and 95% CIs from the three
-Dynamic Riesz estimators used in the figures (Auto-Lasso, Auto-RF, Auto-NN),
-using q quarters of surrogate outcomes.
+Writes combined CSV per outcome when all estimators finish:
+    results/intermediate/auto_{outcome}_estimates.csv
+
+Replication notes (surrogate_application/application_fit_final.py):
+  - AUTO_SEED=0, FOLDS=5 from utils/hyperparams.py
+  - KFold random_state=42
+  - Auto-Lasso / Auto-RF: estimateDynamicRiesz(..., subsetting=False)
+  - Auto-NN: estimateDynamicRiesz_subsetting_net(...)  (separate code path)
+  - Estimator order: Net, Lasso, RF
+  - seed_everything(AUTO_SEED) before each computed auto method (matches
+    application_fit_final.py torch.manual_seed(0) before each fit).
+  - This differs from manual estimates — see 3_calc_manual_estimates.py.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
+import random
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
-from utils.dynamicRieszFunctions import estimateDynamicRiesz
+from utils.dynamicRieszFunctions import (
+    estimateDynamicRiesz,
+    estimateDynamicRiesz_subsetting_net,
+)
+from utils.hyperparams import (
+    AUTO_SEED,
+    FOLDS,
+    lasso_a_settings,
+    lasso_f_settings,
+    net_a_settings,
+    net_f_settings,
+    rf_a_settings,
+    rf_f_settings,
+)
 
 APP_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = APP_DIR / "data" / "processed"
+INTERMEDIATE_DIR = APP_DIR / "results" / "intermediate"
 
 PRETREAT_VARS = (
     [f"paid{i}" for i in range(1, 5)]
@@ -33,18 +58,25 @@ COVARIATES = [
     "hisp", "black", "age",
 ] + PRETREAT_VARS
 
-FOLDS = 5
-SEED = 0
-QUARTER = 6  # quarters of surrogate outcomes (earn1..earn6, etc.)
+QUARTER = 6
 Z_SCORE = 1.96
 
 OUTCOME_LABELS = {"earn": "earnings", "employ": "employment"}
 
+# Order matches application_fit_final.py (Net first, then Lasso, then RF).
 AUTO_ESTIMATORS = [
-    ("Auto-Lasso", "LASSO", "LASSO", False),
-    ("Auto-RF", "RF", "RF", False),
-    ("Auto-NN", "Net", "Net", True),
+    ("Auto-NN", "net"),
+    ("Auto-Lasso", "lasso"),
+    ("Auto-RF", "rf"),
 ]
+
+
+def seed_everything(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def load_sample(application: str, quarter: int) -> dict:
@@ -84,21 +116,55 @@ def load_sample(application: str, quarter: int) -> dict:
     return {"Y_est": Y_est, "X": X, "S": S, "D_est": D_est, "G": G, "n": len(y)}
 
 
-def run_application(application: str, quarter: int) -> None:
+def _run_estimator(method: str, sample: dict) -> tuple[float, float]:
+    y, g, x, d, s = sample["Y_est"], sample["G"], sample["X"], sample["D_est"], sample["S"]
+    seed_everything(AUTO_SEED)
+
+    if method == "net":
+        att, std, _ = estimateDynamicRiesz_subsetting_net(
+            y, g, x, d, s, FOLDS,
+            method_a="Net", net_a_settings=copy.deepcopy(net_a_settings),
+            method_f="Net", net_f_settings=copy.deepcopy(net_f_settings),
+            seed=AUTO_SEED,
+        )
+    elif method == "lasso":
+        att, std, _ = estimateDynamicRiesz(
+            y, g, x, d, s, FOLDS,
+            method_a="LASSO", lasso_a_settings=copy.deepcopy(lasso_a_settings),
+            method_f="LASSO", lasso_f_settings=copy.deepcopy(lasso_f_settings),
+            seed=AUTO_SEED, subsetting=False,
+        )
+    elif method == "rf":
+        att, std, _ = estimateDynamicRiesz(
+            y, g, x, d, s, FOLDS,
+            method_a="RF", rf_a_settings=copy.deepcopy(rf_a_settings),
+            method_f="RF", rf_f_settings=copy.deepcopy(rf_f_settings),
+            seed=AUTO_SEED, subsetting=False,
+        )
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+    return float(att.item()), float(std.item())
+
+
+def run_application(application: str, quarter: int, force: bool = False) -> None:
+    INTERMEDIATE_DIR.mkdir(parents=True, exist_ok=True)
     sample = load_sample(application, quarter)
     rows = []
-
     label = OUTCOME_LABELS[application]
 
-    for est_label, method_a, method_f, subsetting in AUTO_ESTIMATORS:
-        torch.manual_seed(SEED)
-        att, std, _ = estimateDynamicRiesz(
-            sample["Y_est"], sample["G"], sample["X"], sample["D_est"], sample["S"],
-            FOLDS, method_a=method_a, method_f=method_f, seed=SEED, subsetting=subsetting,
-        )
-        point = float(att.item())
-        se = float(std.item()) / (sample["n"] ** 0.5)
-        rows.append({
+    for est_label, method in AUTO_ESTIMATORS:
+        slug = est_label.replace("-", "_")
+        intermediate = INTERMEDIATE_DIR / f"auto_{application}_{slug}.csv"
+
+        if intermediate.exists() and not force:
+            rows.append(pd.read_csv(intermediate).iloc[0].to_dict())
+            print(f"[{label}] {est_label} Complete.", flush=True)
+            continue
+
+        point, sigma = _run_estimator(method, sample)
+        se = sigma / (sample["n"] ** 0.5)
+        row = {
             "outcome": application,
             "quarter": quarter,
             "estimator": est_label,
@@ -107,19 +173,22 @@ def run_application(application: str, quarter: int) -> None:
             "se": se,
             "ci_lower": point - Z_SCORE * se,
             "ci_upper": point + Z_SCORE * se,
-        })
+        }
+        pd.DataFrame([row]).to_csv(intermediate, index=False)
+        rows.append(row)
         print(f"[{label}] {est_label} Complete.", flush=True)
 
-    out = DATA_DIR / f"auto_{application}_estimates.csv"
+    out = INTERMEDIATE_DIR / f"auto_{application}_estimates.csv"
     pd.DataFrame(rows).to_csv(out, index=False)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--applications", nargs="+", default=["earn", "employ"])
+    parser.add_argument("--force", action="store_true", help="Recompute even if cached CSVs exist.")
     args = parser.parse_args()
     for app in args.applications:
-        run_application(app, QUARTER)
+        run_application(app, QUARTER, force=args.force)
 
 
 if __name__ == "__main__":

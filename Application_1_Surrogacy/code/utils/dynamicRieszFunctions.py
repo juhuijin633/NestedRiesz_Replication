@@ -96,6 +96,13 @@ def estimateDynamicRiesz(Y, G, X, D, S, folds,
                                             rf_f_settings = rf_f_settings,
                                                 net_a_settings = net_a_settings,
                                                     net_f_settings = net_f_settings, seed = None, subsetting = False):
+
+    lasso_a_settings = copy.deepcopy(lasso_a_settings)
+    lasso_f_settings = copy.deepcopy(lasso_f_settings)
+    rf_a_settings = copy.deepcopy(rf_a_settings)
+    rf_f_settings = copy.deepcopy(rf_f_settings)
+    net_a_settings = copy.deepcopy(net_a_settings)
+    net_f_settings = copy.deepcopy(net_f_settings)
         
     fold_results = torch.zeros(Y.shape, dtype=torch.float64)
 
@@ -163,33 +170,29 @@ class Trainer:
 
         # initalise trainers for f functions
         if method_f == 'LASSO':
-            lasso_f_cfg = copy.deepcopy(lasso_f_settings)
-            lasso_f_cfg["seed"] = seed
+            lasso_f_settings["seed"] = seed
             if subsetting: # include a different estimator for f2
-                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings=lasso_f_cfg), Lasso(random_state=seed)]
+                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings=lasso_f_settings), Lasso(random_state=seed)]
             else:
-                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings=lasso_f_cfg) for _ in range(self.T)]
+                self.learners_f = [utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings=lasso_f_settings) for _ in range(self.T)]
         if method_f == 'RF':
-            rf_f_cfg = copy.deepcopy(rf_f_settings)
-            rf_f_cfg["random_state"] = seed
+            rf_f_settings["random_state"] = seed
             if subsetting:
-                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings=rf_f_cfg), RandomForestRegressor(random_state=seed)]
+                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings=rf_f_settings), RandomForestRegressor(random_state=seed)]
             else:
-                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings=rf_f_cfg) for _ in range(self.T)]
+                self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings=rf_f_settings) for _ in range(self.T)]
         if method_f == 'Net':
-            self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=copy.deepcopy(net_f_settings)) for _ in range(self.T)]
+            self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings) for _ in range(self.T)]
         
         # initalise trainers for a functions
         if method_a == "LASSO":
-            lasso_a_cfg = copy.deepcopy(lasso_a_settings)
-            lasso_a_cfg["seed"] = seed
-            self.learners_a = [utils.dynamicRieszLASSO.Learner_a_LASSO(lasso_a_settings=lasso_a_cfg) for _ in range(self.T * 2)]
+            lasso_a_settings["seed"] = seed
+            self.learners_a = [utils.dynamicRieszLASSO.Learner_a_LASSO(lasso_a_settings=lasso_a_settings) for _ in range(self.T * 2)]
         if method_a == "RF":
-            rf_a_cfg = copy.deepcopy(rf_a_settings)
-            rf_a_cfg["random_state"] = seed
-            self.learners_a = [utils.dynamicRieszRF.Learner_a_RF(rf_a_settings=rf_a_cfg) for _ in range(self.T * 2)]
+            rf_a_settings["random_state"] = seed
+            self.learners_a = [utils.dynamicRieszRF.Learner_a_RF(rf_a_settings=rf_a_settings) for _ in range(self.T * 2)]
         if method_a == "Net":
-            self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings=copy.deepcopy(net_a_settings)) for _ in range(self.T * 2)]
+            self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings=net_a_settings) for _ in range(self.T * 2)]
 
     def train(self):
         predictors_2 = torch.hstack((self.X, self.S))
@@ -205,7 +208,12 @@ class Trainer:
         mask_G1 =  self.G.bool().squeeze()
 
         if self.subsetting:
-            self.learners_f[1].fit(predictors_2[mask_G1], self.Y[mask_G1].ravel())
+            y_g1 = self.Y[mask_G1].ravel()
+            x_g1 = predictors_2[mask_G1]
+            if isinstance(self.learners_f[1], (Lasso, RandomForestRegressor)):
+                self.learners_f[1].fit(x_g1, y_g1)
+            else:
+                self.learners_f[1].fit(y_g1, x_g1)
         else:
             self.learners_f[1].fit(self.Y, predictors_2, rr_variables_2)
 
@@ -246,3 +254,198 @@ class Trainer:
         # Estimate a2^0
         a_prev_20 = self.learners_a[2].predict(predictors_1, rr_variables_1)
         self.learners_a[3].fit(predictors_2, rr_variables_2, d2, a_prev_20)
+
+
+def _thetahat_subsetting_net(learners_f, learners_a, Y, G, X, D, S):
+    """Theta for Auto-NN (matches surrogate_application/application_fit_final.py)."""
+    predictors_2 = torch.hstack((X, S))
+    predictors_1 = X
+
+    rr_variables_1 = torch.hstack((G, D))
+    rr_variables_2 = G
+
+    pi = (1 - G) / torch.mean((1 - G.float()))
+
+    theta = pi * (learners_f[0].predict(predictors_1, torch.ones(D.shape)))
+    with torch.no_grad():
+        f2 = learners_f[1].predict(predictors_2)
+    f2 = f2.detach().view(-1, 1)
+
+    theta -= pi * learners_a[0].predict(predictors_1, rr_variables_1) * (
+        f2 - learners_f[0].predict(predictors_1, D)
+    )
+    theta -= learners_a[1].predict(predictors_2, rr_variables_2) * (Y - f2)
+
+    theta -= pi * (learners_f[0].predict(predictors_1, torch.zeros(D.shape)))
+    theta += pi * learners_a[2].predict(predictors_1, rr_variables_1) * (
+        f2 - learners_f[0].predict(predictors_1, D)
+    )
+    theta += learners_a[3].predict(predictors_2, rr_variables_2) * (Y - f2)
+
+    return theta.float()
+
+
+class TrainerSubsetNet:
+    """Trainer for Auto-NN only (matches application_fit_final.py)."""
+
+    def __init__(
+        self,
+        Y,
+        G,
+        X,
+        D,
+        S,
+        method_a="Net",
+        method_f="Net",
+        lasso_a_settings=lasso_a_settings,
+        lasso_f_settings=lasso_f_settings,
+        rf_a_settings=rf_a_settings,
+        rf_f_settings=rf_f_settings,
+        net_a_settings=net_a_settings,
+        net_f_settings=net_f_settings,
+        seed=None,
+    ):
+        self.Y = Y
+        self.G = G
+        self.X = X
+        self.D = D
+        self.S = S
+        self.T = 2
+        self.method_a = method_a
+        self.method_f = method_f
+
+        if method_f == "LASSO":
+            lasso_f_settings["seed"] = seed
+            self.learners_f = [
+                utils.dynamicRieszLASSO.Learner_f_LASSO(lasso_f_settings=lasso_f_settings)
+                for _ in range(self.T)
+            ]
+        if method_f == "RF":
+            rf_f_settings["random_state"] = seed
+            self.learners_f = [
+                utils.dynamicRieszRF.Learner_f_RF(rf_f_settings=rf_f_settings)
+                for _ in range(self.T)
+            ]
+        if method_f == "Net":
+            self.learners_f = [
+                utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings)
+                for _ in range(self.T)
+            ]
+
+        if method_a == "LASSO":
+            lasso_a_settings["seed"] = seed
+            self.learners_a = [
+                utils.dynamicRieszLASSO.Learner_a_LASSO(lasso_a_settings=lasso_a_settings)
+                for _ in range(self.T * 2)
+            ]
+        if method_a == "RF":
+            rf_a_settings["random_state"] = seed
+            self.learners_a = [
+                utils.dynamicRieszRF.Learner_a_RF(rf_a_settings=rf_a_settings)
+                for _ in range(self.T * 2)
+            ]
+        if method_a == "Net":
+            self.learners_a = [
+                utils.dynamicRieszNet.Learner_a_Net(net_a_settings=net_a_settings)
+                for _ in range(self.T * 2)
+            ]
+
+    def train(self):
+        predictors_2 = torch.hstack((self.X, self.S))
+        predictors_1 = self.X
+
+        rr_variables_1 = torch.hstack((self.G, self.D))
+        rr_variables_2 = self.G
+        d1_1 = torch.tensor([0, 1]).repeat(rr_variables_1.shape[0], 1)
+        d2 = torch.ones(rr_variables_2.shape)
+        d1_0 = torch.zeros(rr_variables_1.shape)
+
+        mask_G0 = (1 - self.G).bool().squeeze()
+        mask_G1 = self.G.bool().squeeze()
+
+        if self.method_f == "Net":
+            self.learners_f[1].fit(self.Y[mask_G1].ravel(), predictors_2[mask_G1])
+            f2_hat = self.learners_f[1].predict(predictors_2)
+        else:
+            f2_hat = torch.tensor(self.learners_f[1].predict(predictors_2))
+
+        self.learners_f[0].fit(f2_hat[mask_G0].view(-1, 1), predictors_1[mask_G0], self.D[mask_G0])
+
+        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.float())
+        self.learners_a[0].fit(predictors_1, rr_variables_1, d1_1, a_prev_1)
+
+        a_prev_21 = self.learners_a[0].predict(predictors_1, rr_variables_1)
+        self.learners_a[1].fit(predictors_2, rr_variables_2, d2, a_prev_21)
+
+        a_prev_1 = (1 - self.G) / torch.mean(1 - self.G.float())
+        self.learners_a[2].fit(predictors_1, rr_variables_1, d1_0, a_prev_1)
+
+        a_prev_20 = self.learners_a[2].predict(predictors_1, rr_variables_1)
+        self.learners_a[3].fit(predictors_2, rr_variables_2, d2, a_prev_20)
+
+
+def estimateDynamicRiesz_subsetting_net(
+    Y,
+    G,
+    X,
+    D,
+    S,
+    folds,
+    method_a="Net",
+    method_f="Net",
+    lasso_a_settings=lasso_a_settings,
+    lasso_f_settings=lasso_f_settings,
+    rf_a_settings=rf_a_settings,
+    rf_f_settings=rf_f_settings,
+    net_a_settings=net_a_settings,
+    net_f_settings=net_f_settings,
+    seed=None,
+):
+    """Auto-NN estimator (matches surrogate_application/application_fit_final.py)."""
+    lasso_a_settings = copy.deepcopy(lasso_a_settings)
+    lasso_f_settings = copy.deepcopy(lasso_f_settings)
+    rf_a_settings = copy.deepcopy(rf_a_settings)
+    rf_f_settings = copy.deepcopy(rf_f_settings)
+    net_a_settings = copy.deepcopy(net_a_settings)
+    net_f_settings = copy.deepcopy(net_f_settings)
+
+    fold_results = torch.zeros(Y.shape, dtype=torch.float64)
+    kf = KFold(n_splits=folds, shuffle=True, random_state=42)
+    for _, (train_index, test_index) in enumerate(kf.split(Y)):
+        Y_train, Y_test = Y[train_index], Y[test_index]
+        G_train, G_test = G[train_index], G[test_index]
+        X_train, X_test = X[train_index], X[test_index]
+        D_train, D_test = D[train_index], D[test_index]
+        S_train, S_test = S[train_index], S[test_index]
+
+        trainer = TrainerSubsetNet(
+            Y_train,
+            G_train,
+            X_train,
+            D_train,
+            S_train,
+            method_a,
+            method_f,
+            lasso_a_settings=lasso_a_settings,
+            lasso_f_settings=lasso_f_settings,
+            rf_a_settings=rf_a_settings,
+            rf_f_settings=rf_f_settings,
+            net_a_settings=net_a_settings,
+            net_f_settings=net_f_settings,
+            seed=seed,
+        )
+        trainer.train()
+        fold_results[test_index] = _thetahat_subsetting_net(
+            trainer.learners_f,
+            trainer.learners_a,
+            Y_test,
+            G_test,
+            X_test,
+            D_test,
+            S_test,
+        ).double()
+
+    point = torch.mean(fold_results)
+    sigma2 = torch.mean((fold_results - point) ** 2)
+    sigma = torch.sqrt(sigma2)
+    return point, sigma, fold_results

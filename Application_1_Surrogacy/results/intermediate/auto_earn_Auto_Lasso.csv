@@ -1,0 +1,2 @@
+outcome,quarter,estimator,group,point_estimate,se,ci_lower,ci_upper
+earn,6,Auto-Lasso,auto,203.82618719328255,32.10151211135083,140.9072234550349,266.7451509315302

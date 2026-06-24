@@ -12,11 +12,14 @@ CODE_DIR = Path(__file__).resolve().parent
 PYTHON = sys.executable
 
 
-def run_script(name: str, label: str) -> None:
+def run_script(name: str, label: str, extra: list[str] | None = None) -> None:
     print(f"\n{'=' * 60}", flush=True)
     print(label, flush=True)
     print(f"{'=' * 60}", flush=True)
-    subprocess.run([PYTHON, str(CODE_DIR / name)], check=True)
+    cmd = [PYTHON, str(CODE_DIR / name)]
+    if extra:
+        cmd.extend(extra)
+    subprocess.run(cmd, check=True)
 
 
 def main() -> None:
@@ -25,14 +28,17 @@ def main() -> None:
     parser.add_argument("--skip-auto", action="store_true")
     parser.add_argument("--skip-manual", action="store_true")
     parser.add_argument("--skip-figures", action="store_true")
+    parser.add_argument("--force", action="store_true", help="Recompute auto/manual estimates even if cached.")
     args = parser.parse_args()
+
+    recompute_extra = ["--force"] if args.force else []
 
     if not args.skip_clean:
         run_script("1_clean_data.py", "1. Clean Data")
     if not args.skip_auto:
-        run_script("2_calc_auto_estimates.py", "2. Calculate Auto-Estimates")
+        run_script("2_calc_auto_estimates.py", "2. Calculate Auto-Estimates", recompute_extra)
     if not args.skip_manual:
-        run_script("3_calc_manual_estimates.py", "3. Calculate Manual-Estimates")
+        run_script("3_calc_manual_estimates.py", "3. Calculate Manual-Estimates", recompute_extra)
     if not args.skip_figures:
         run_script("4_tables_figs.py", "4. Tables and Figures")
 
