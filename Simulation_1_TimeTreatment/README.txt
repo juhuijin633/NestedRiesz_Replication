@@ -1,7 +1,7 @@
 Simulation_1_TimeTreatment
 ============================
 
-Monte Carlo simulation for time-varying treatment estimators (E[Y(1,1)] and ATE).
+Monte Carlo simulation for time-varying treatment estimators (E[Y(1,1)] only).
 
 Layout
 ------
@@ -9,14 +9,13 @@ Layout
   code/
     RUN.py                     local entry point
     run_simulations.sbatch     SLURM array 0-5999 → E[Y(1,1)] replications
-    run_simulations_ate.sbatch SLURM array 0-5999 → ATE replications
     collect_results.sbatch     SLURM collect → 2_collect_results.py
     1_run_simulation.py        one (config, N, iteration) job per invocation
     2_collect_results.py       aggregate .pt → CSV tables
     utils/generate_dgp.py, hyperparams.py, dynamicRiesz*, dynamicRieszBradic.py, Bradic.R
   results/
-    intermediate/{psi11,ate}/N_{500,1000,2000}/{config_id}/result_{t}.pt
-    summary.csv, table_psi11.csv, table_ate.csv
+    intermediate/N_{500,1000,2000}/{config_id}/result_{t}.pt
+    summary.csv, table_psi11.csv
 
 Cluster
 -------
@@ -24,7 +23,7 @@ Cluster
   bash RUN_ALL_JOBS.sh
 
   Each array task runs one MC replication (matches time_varying_treatment/submit.sh):
-    4 DGPs × 3 N × 500 iterations = 6000 tasks per target.
+    4 DGPs × 3 N × 500 iterations = 6000 tasks.
 
 Local
 -----
@@ -36,8 +35,8 @@ Local
   Single replication (smoke test):
     python 1_run_simulation.py --config linear_truncated_logistic --N 500 --iteration 0
 
-  Full sweep (6000 × 2 targets — very slow):
-    python RUN.py --all --target all
+  Full sweep (6000 jobs — very slow):
+    python RUN.py --all
 
 Collect
 -------

@@ -35,7 +35,6 @@ def main() -> None:
         "linear_logistic",
     ])
     parser.add_argument("--N", type=int, choices=[500, 1000, 2000])
-    parser.add_argument("--target", choices=["psi11", "ate", "all"], default="psi11")
     parser.add_argument("--iteration", type=int, help="Single MC replication (0..499).")
     parser.add_argument(
         "--all",
@@ -53,8 +52,6 @@ def main() -> None:
         sim_extra.extend(["--config", args.config])
     if args.N is not None:
         sim_extra.extend(["--N", str(args.N)])
-    if args.target != "psi11" or args.all:
-        sim_extra.extend(["--target", args.target])
     if args.iteration is not None:
         sim_extra.extend(["--iteration", str(args.iteration)])
 

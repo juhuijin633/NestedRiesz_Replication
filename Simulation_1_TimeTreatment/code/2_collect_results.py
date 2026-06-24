@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate per-iteration .pt files into summary.csv and paper tables."""
+"""Aggregate per-iteration .pt files into summary.csv and E[Y(1,1)] tables."""
 
 from __future__ import annotations
 
@@ -17,63 +17,40 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 NS = [500, 1000, 2000]
 TMAX = 500
 
+# E[Y(1,1)] = path-specific theta_{1,1}; compare estimates to theta_true in each .pt file.
 CONFIGS = [
     {
         "id": "linear_truncated_logistic",
         "label": "Linear DGP + truncated logistic",
-        "target": "psi11",
-        "theta_key": "theta_true",
     },
     {
         "id": "nonlinear_truncated_adv",
         "label": "Nonlinear DGP + truncated adversarial",
-        "target": "psi11",
-        "theta_key": "theta_true",
     },
     {
         "id": "linear_truncated_adv",
         "label": "Linear DGP + truncated adversarial",
-        "target": "psi11",
-        "theta_key": "theta_true",
     },
     {
         "id": "linear_logistic",
         "label": "Linear DGP + logistic",
-        "target": "psi11",
-        "theta_key": "theta_true",
-    },
-    {
-        "id": "linear_truncated_logistic",
-        "label": "ATE: Linear DGP + truncated logistic",
-        "target": "ate",
-        "theta_key": "ate_true",
-    },
-    {
-        "id": "nonlinear_truncated_adv",
-        "label": "ATE: Nonlinear DGP + truncated adversarial",
-        "target": "ate",
-        "theta_key": "ate_true",
-    },
-    {
-        "id": "linear_truncated_adv",
-        "label": "ATE: Linear DGP + truncated adversarial",
-        "target": "ate",
-        "theta_key": "ate_true",
-    },
-    {
-        "id": "linear_logistic",
-        "label": "ATE: Linear DGP + logistic",
-        "target": "ate",
-        "theta_key": "ate_true",
     },
 ]
 
 METHODS = ["Oracle", "Bradic", "LASSO-LASSO", "RF-RF", "Net-Net"]
 
 
-def _load_results(target: str, config_id: str, n: int) -> tuple[list[dict], list[int]]:
+def _job_dir(config_id: str, n: int) -> Path:
+    """Resolve result directory (flat layout preferred; legacy psi11/ subdir supported)."""
+    flat = INTERMEDIATE_DIR / f"N_{n}" / config_id
+    if flat.exists():
+        return flat
+    return INTERMEDIATE_DIR / "psi11" / f"N_{n}" / config_id
+
+
+def _load_results(config_id: str, n: int) -> tuple[list[dict], list[int]]:
     results, missing = [], []
-    base = INTERMEDIATE_DIR / target / f"N_{n}" / config_id
+    base = _job_dir(config_id, n)
     for t in range(TMAX):
         path = base / f"result_{t}.pt"
         if not path.exists():
@@ -83,9 +60,9 @@ def _load_results(target: str, config_id: str, n: int) -> tuple[list[dict], list
     return results, missing
 
 
-def _compute_metrics(results: list[dict], n: int, theta_key: str) -> pd.DataFrame:
+def _compute_metrics(results: list[dict], n: int) -> pd.DataFrame:
     t_count = len(results)
-    theta_true = results[0][theta_key]
+    theta_true = results[0]["theta_true"]
     if isinstance(theta_true, torch.Tensor):
         theta_true = theta_true.item()
 
@@ -127,7 +104,7 @@ def collect(verbose: bool = True) -> pd.DataFrame:
     rows = []
     for cfg in CONFIGS:
         for n in NS:
-            results, missing = _load_results(cfg["target"], cfg["id"], n)
+            results, missing = _load_results(cfg["id"], n)
             if not results:
                 if verbose:
                     print(f"\n[{cfg['label']}, N={n}] — no results, skipping")
@@ -135,15 +112,14 @@ def collect(verbose: bool = True) -> pd.DataFrame:
             if missing and verbose:
                 print(f"\nWarning [{cfg['label']}, N={n}]: {len(missing)} missing iterations")
 
-            df = _compute_metrics(results, n, cfg["theta_key"])
-            theta_true = results[0][cfg["theta_key"]]
+            df = _compute_metrics(results, n)
+            theta_true = results[0]["theta_true"]
             if isinstance(theta_true, torch.Tensor):
                 theta_true = theta_true.item()
 
             for _, method_row in df.iterrows():
                 rows.append(
                     {
-                        "target": cfg["target"],
                         "config": cfg["id"],
                         "label": cfg["label"],
                         "N": n,
@@ -161,7 +137,7 @@ def collect(verbose: bool = True) -> pd.DataFrame:
                 print(f"\n{'=' * 65}")
                 print(cfg["label"])
                 print(f"N = {n}  |  tmax = {TMAX}")
-                print(f"True theta = {theta_true:.4f}  |  Iterations: {len(results)} / {TMAX}")
+                print(f"True E[Y(1,1)] = {theta_true:.4f}  |  Iterations: {len(results)} / {TMAX}")
                 print(f"{'=' * 65}")
                 print(df.to_string(index=False, float_format="{:.4f}".format))
 
@@ -187,12 +163,9 @@ def main() -> None:
     df.to_csv(out_path, index=False)
     print(f"\nSaved to {out_path}")
 
-    for target in ("psi11", "ate"):
-        sub = df[df["target"] == target].drop(columns=["target"])
-        table_path = RESULTS_DIR / f"table_{target}.csv"
-        sub.to_csv(table_path, index=False)
-        label = "E[Y(1,1)]" if target == "psi11" else "ATE"
-        print(f"  {label} → {table_path.name}")
+    table_path = RESULTS_DIR / "table_psi11.csv"
+    df.to_csv(table_path, index=False)
+    print(f"  E[Y(1,1)] → {table_path.name}")
 
 
 if __name__ == "__main__":

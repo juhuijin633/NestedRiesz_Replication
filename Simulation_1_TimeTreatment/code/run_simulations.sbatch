@@ -26,7 +26,6 @@ eval "$(conda shell.bash hook)"
 conda activate riesz
 
 export R_LIBS_USER="${R_LIBS_USER:-/n/home11/jinhopark/R/library}"
-export SIM_TARGET=psi11
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
