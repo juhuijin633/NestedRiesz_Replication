@@ -8,10 +8,14 @@
 
 module load R/4.4.3-fasrc01
 
-R_LIBS_USER=/n/home11/jinhopark/R/library R --no-save -e "
-.libPaths(c('/n/home11/jinhopark/R/library', .libPaths()))
-install.packages('glmnet', lib='/n/home11/jinhopark/R/library',
+R_LIB="$HOME/R/library"
+mkdir -p "$R_LIB"
+
+R_LIBS_USER="$R_LIB" R --no-save -e "
+.libPaths(c(Sys.getenv('R_LIBS_USER'), .libPaths()))
+install.packages('glmnet', lib=Sys.getenv('R_LIBS_USER'),
                  repos='https://cloud.r-project.org',
                  INSTALL_opts='--no-multiarch')
 cat('glmnet installed:', is.element('glmnet', installed.packages()[,1]), '\n')
+cat('R library path:', Sys.getenv('R_LIBS_USER'), '\n')
 "
