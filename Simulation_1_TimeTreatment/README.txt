@@ -10,6 +10,7 @@ Layout
     RUN.py                     local entry point
     run_simulations.sbatch     SLURM array 0-5999 → E[Y(1,1)] replications
     collect_results.sbatch     SLURM collect → 2_collect_results.py
+    smoke_test.py              one replication pre-flight (cluster)
     1_run_simulation.py        one (config, N, iteration) job per invocation
     2_collect_results.py       aggregate .pt → CSV tables
     utils/generate_dgp.py, hyperparams.py, dynamicRiesz*, dynamicRieszBradic.py, Bradic.R
@@ -19,24 +20,19 @@ Layout
 
 Cluster
 -------
-  cd Simulation_1_TimeTreatment
-  bash RUN_ALL_JOBS.sh
+  cd Simulation_1_TimeTreatment/code
+  module load python/3.10.9-fasrc01
+  module load R/4.4.3-fasrc01
+  conda activate riesz
+
+  Pre-flight (one replication):
+    python smoke_test.py
+
+  Submit full array:
+    sbatch run_simulations.sbatch
 
   Each array task runs one MC replication (matches time_varying_treatment/submit.sh):
     4 DGPs × 3 N × 500 iterations = 6000 tasks.
-
-Local
------
-  cd Simulation_1_TimeTreatment/code
-
-  Single setting, all 500 replications:
-    python 1_run_simulation.py --config linear_truncated_logistic --N 500
-
-  Single replication (smoke test):
-    python 1_run_simulation.py --config linear_truncated_logistic --N 500 --iteration 0
-
-  Full sweep (6000 jobs — very slow):
-    python RUN.py --all
 
 Collect
 -------

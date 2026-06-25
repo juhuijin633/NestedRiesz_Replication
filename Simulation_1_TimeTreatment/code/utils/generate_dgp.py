@@ -9,6 +9,13 @@ import torch
 from torch.distributions import Normal
 
 
+def _to_float(value) -> float:
+    """Scalar float from Python numeric or 0-d torch tensor."""
+    if isinstance(value, torch.Tensor):
+        return value.item()
+    return float(value)
+
+
 def get_treatment_func(
     func_name: str,
     lower: float = 0.10,
@@ -99,12 +106,12 @@ def generate_linear(
 
     mu2_1 = beta_g1_0 + s1 @ beta_g1_s1 + s2_1 @ beta_g1_s2
     mu1_1 = beta_g1_0 + s1 @ (beta_g1_s1 + beta_g1_s2) + beta_g1_s2.sum()
-    theta_true = (beta_g1_0 + beta_g1_s2.sum()).item()
+    theta_true = _to_float(beta_g1_0 + beta_g1_s2.sum())
 
     mu2_0 = beta_g0_0 + s1 @ beta_g0_s1 + s2_0 @ beta_g0_s2
     mu1_0 = beta_g0_0 + s1 @ (beta_g0_s1 + beta_g0_s2)
-    theta0 = beta_g0_0
-    ate_true = (theta_true - theta0.item())
+    theta0 = _to_float(beta_g0_0)
+    ate_true = theta_true - theta0
 
     x = torch.hstack((s1, s2))
     x_index = torch.tensor([s1.shape[1] - 1, s1.shape[1] + s2.shape[1] - 1])
