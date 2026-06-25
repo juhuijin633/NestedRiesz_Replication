@@ -5,6 +5,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
+mkdir -p "$PROJECT_ROOT/results/logs"
+
 cd "$PROJECT_ROOT/code"
 
 PSI11_JOB_ID=$(sbatch "$@" run_simulations.sbatch | awk '{print $NF}')

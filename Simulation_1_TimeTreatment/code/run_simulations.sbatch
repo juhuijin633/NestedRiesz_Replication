@@ -17,17 +17,25 @@
 #   DGP 2 (linear,    truncated_adv):      tasks 3000–4499
 #   DGP 3 (linear,    logistic):          tasks 4500–5999
 
-set -euo pipefail
+set -eo pipefail
 
 module load python/3.10.9-fasrc01
 module load R/4.4.3-fasrc01
-source ~/.bashrc
+
 eval "$(conda shell.bash hook)"
 conda activate riesz
 
-export R_LIBS_USER="${R_LIBS_USER:-/n/home11/jinhopark/R/library}"
+export R_LIBS_USER="$HOME/R/library"
+mkdir -p "$R_LIBS_USER" 
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+export SIM_TARGET=psi11
+
+cd "$SLURM_SUBMIT_DIR"
+
+echo "SLURM_JOB_ID=$SLURM_JOB_ID"
+echo "SLURM_ARRAY_TASK_ID=$SLURM_ARRAY_TASK_ID"
+echo "SLURM_SUBMIT_DIR=$SLURM_SUBMIT_DIR"
+echo "Running from $(pwd)"
+ls -la
 
 python 1_run_simulation.py
