@@ -320,11 +320,15 @@ class RieszNet:
 
     def get_model(self, model):
         if model == 'final':
-            return torch.load(os.path.join(self.model_dir,
-                                           "epoch{}".format(self.n_epochs - 1)))
+            return torch.load(
+                os.path.join(self.model_dir, "epoch{}".format(self.n_epochs - 1)),
+                weights_only=False,
+            )
         if model == 'earlystop':
-            return torch.load(os.path.join(self.model_dir,
-                                           "earlystop"))
+            return torch.load(
+                os.path.join(self.model_dir, "earlystop"),
+                weights_only=False,
+            )
 
         raise AttributeError("Not implemented")
 
@@ -572,11 +576,15 @@ class RegNet:
 
     def get_model(self, model):
         if model == 'final':
-            return torch.load(os.path.join(self.model_dir,
-                                           "epoch{}".format(self.n_epochs - 1)))
+            return torch.load(
+                os.path.join(self.model_dir, "epoch{}".format(self.n_epochs - 1)),
+                weights_only=False,
+            )
         if model == 'earlystop':
-            return torch.load(os.path.join(self.model_dir,
-                                           "earlystop"))
+            return torch.load(
+                os.path.join(self.model_dir, "earlystop"),
+                weights_only=False,
+            )
 
         raise AttributeError("Not implemented")
 

@@ -13,7 +13,7 @@ M=floor(N/K)
 pred_pi1_1=matrix(0,nrow=num_piest,ncol=N)
 pred_pi2_0=matrix(0,nrow=num_piest,ncol=N);pred_pi2_1=matrix(0,nrow=num_piest,ncol=N)
 pred_mu2_1=matrix(0,nrow=num_mu1est,ncol=N);pred_mu1_1=matrix(0,nrow=num_mu1est,ncol=N)
-pred_mu2_0=matrix(a,nrow=num_mu1est,ncol=N);pred_mu1_0=matrix(0,nrow=num_mu1est,ncol=N)
+pred_mu2_0=matrix(0,nrow=num_mu1est,ncol=N);pred_mu1_0=matrix(0,nrow=num_mu1est,ncol=N)
 
 
 #estimation of pi1, pi2, mu1, mu2
