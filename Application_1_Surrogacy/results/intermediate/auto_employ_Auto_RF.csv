@@ -1,0 +1,2 @@
+outcome,quarter,estimator,group,point_estimate,se,ci_lower,ci_upper
+employ,6,Auto-RF,auto,0.06082487622074654,0.008723086293349834,0.04372762708578087,0.07792212535571222

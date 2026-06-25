@@ -142,11 +142,14 @@ def plot_summary(
         scale_lower = summary["ci_lower"].to_numpy()
         scale_upper = summary["ci_upper"].to_numpy()
 
-    pad = 0.05 * (scale_upper.max() - scale_lower.min())
-    ax.set_ylim(0, scale_upper.max() + pad)
+    y_min, y_max = scale_lower.min(), scale_upper.max()
+    pad = 0.05 * (y_max - y_min) if y_max > y_min else 0.01
+    ax.set_ylim(y_min - pad, y_max + pad)
 
     if yticks is not None:
-        ax.set_yticks(yticks)
+        visible = all(y_min - pad <= t <= y_max + pad for t in yticks)
+        if visible:
+            ax.set_yticks(yticks)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()

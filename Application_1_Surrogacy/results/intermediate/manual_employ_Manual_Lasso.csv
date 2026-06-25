@@ -1,0 +1,2 @@
+outcome,quarter,estimator,group,point_estimate,se,ci_lower,ci_upper
+employ,6,Manual-Lasso,manual,0.05932335127265552,0.006261181794677029,0.047051434955088546,0.0715952675902225

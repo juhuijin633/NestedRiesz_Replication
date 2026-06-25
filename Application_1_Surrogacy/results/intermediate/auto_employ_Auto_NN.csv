@@ -1,0 +1,2 @@
+outcome,quarter,estimator,group,point_estimate,se,ci_lower,ci_upper
+employ,6,Auto-NN,auto,0.07278452635593961,0.016516903929589502,0.04041139465394419,0.10515765805793503

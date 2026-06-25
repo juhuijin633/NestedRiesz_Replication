@@ -1,0 +1,2 @@
+outcome,quarter,estimator,group,point_estimate,se,ci_lower,ci_upper
+employ,6,Manual-RF,manual,0.060505106270858575,0.006396242544658665,0.04796847088332759,0.07304174165838956

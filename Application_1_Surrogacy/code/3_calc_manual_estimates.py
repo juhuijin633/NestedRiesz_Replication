@@ -5,9 +5,10 @@ Writes per-estimator CSVs to results/intermediate/ after each run:
 
 Replication policy (trimmed pipeline — three estimators only):
   - Does NOT replay the full gains_app.ipynb sequence (TSLS, RKHS, sparse, etc.).
-  - seed_everything(MANUAL_SEED) runs before each computed method so results are stable
-    across full RUN.py vs resume-from-cache and do not depend on estimator order.
-  - MANUAL_SEED=123 matches gains_app.ipynb; values will differ from the original notebook.
+  - seed_everything(MANUAL_SEED) once per outcome (earn/employ), matching gains_app.ipynb.
+  - MANUAL_SEED=123 matches gains_app.ipynb.
+  - Re-run with --force after code/data fixes; cached per-estimator CSVs are not invalidated
+    automatically when only one outcome is recomputed.
 """
 
 from __future__ import annotations
@@ -58,9 +59,9 @@ OUTCOME_LABELS = {"earn": "earnings", "employ": "employment"}
 
 DML_KWARGS = dict(
     longterm_model="surrogacy",
-    sample_G="G=0",
     n_folds=FOLDS,
     n_rep=1,
+    random_seed=MANUAL_SEED,
     CHIM=False,
     prop_score=LogisticRegression(max_iter=2000),
 )
@@ -76,7 +77,12 @@ def seed_everything(seed: int) -> None:
 
 
 def load_sample(application: str, quarter: int) -> dict:
-    """Stack observational (G=1) and experimental (G=0) units; mask D on obs, Y on exp."""
+    """Stack observational (G=1) and experimental (G=0) units; mask D on obs, Y on exp.
+
+    Y, D, G must be (n, 1) column vectors — gains_app.ipynb used torch tensors with
+    .view(-1, 1). With 1D (n,) arrays, nnpiv propensity IPW terms broadcast to (n, n)
+    and estimates become wrong (often opposite sign).
+    """
     exp = pd.read_csv(DATA_DIR / "exp_data.csv")
     obs = pd.read_csv(DATA_DIR / "obs_data.csv")
 
@@ -104,11 +110,11 @@ def load_sample(application: str, quarter: int) -> dict:
     d_est[g == 1] = 0
 
     return {
-        "Y": y_est.to_numpy(),
-        "D": d_est.to_numpy(),
-        "X": x.to_numpy(),
-        "S": s.to_numpy(),
-        "G": g.to_numpy(),
+        "Y": y_est.to_numpy(dtype=float).reshape(-1, 1),
+        "D": d_est.to_numpy(dtype=float).reshape(-1, 1),
+        "X": x.to_numpy(dtype=float),
+        "S": s.to_numpy(dtype=float),
+        "G": g.to_numpy(dtype=float).reshape(-1, 1),
     }
 
 
@@ -122,12 +128,20 @@ def fit_dml(sample: dict, model1, **extra) -> tuple[float, float, float]:
 
 
 def fit_manual_lasso(sample: dict) -> tuple[float, float, float]:
-    return fit_dml(sample, model1=[regtsls(), regtsls()])
+    return fit_dml(
+        sample,
+        model1=[regtsls(), regtsls()],
+        nn_1=[False, False],
+    )
 
 
 def fit_manual_rf(sample: dict) -> tuple[float, float, float]:
     rf = EnsembleIV(n_iter=200, max_abs_value=2)
-    return fit_dml(sample, model1=[rf, rf])
+    return fit_dml(
+        sample,
+        model1=[rf, rf],
+        nn_1=[False, False],
+    )
 
 
 def fit_manual_nn(sample: dict) -> tuple[float, float, float]:
@@ -181,6 +195,8 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
         except Exception:
             pass
 
+        seed_everything(MANUAL_SEED)
+
         for est_label, fit_fn in MANUAL_ESTIMATORS:
             slug = est_label.replace("-", "_")
             intermediate = INTERMEDIATE_DIR / f"manual_{application}_{slug}.csv"
@@ -190,7 +206,6 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
                 print(f"[{label}] {est_label} Complete.", flush=True)
                 continue
 
-            seed_everything(MANUAL_SEED)
             point, ci_lo, ci_hi = fit_fn(sample)
             se = (ci_hi - ci_lo) / (2 * Z_SCORE)
             row = {
