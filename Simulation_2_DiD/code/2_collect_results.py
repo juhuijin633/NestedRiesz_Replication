@@ -16,7 +16,10 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 
 NS = [500, 1000, 2000]
 PROPENSITY_MODELS = ["logistic", "truncated_logistic", "truncated_step"]
+# Paper table labels (same order as simulation_cluster.py method_names index).
 METHOD_LABELS = ["OLS", "Auto-Linear", "Auto-Lasso", "Auto-RF", "Auto-NN"]
+# Index 0 = OLS returns HC0 SE in pred_sig; Riesz methods return IF standard deviations.
+OLS_METHOD_INDEX = 0
 
 TABLE_TITLES = {
     "logistic": "Table D.6 Logistic Propensities",
@@ -40,7 +43,14 @@ def _load_job(n: int, model_name: str) -> tuple[torch.Tensor, torch.Tensor, floa
     return pred_theta, pred_sig, att.item()
 
 
-def collect() -> pd.DataFrame:
+def _se_for_method(sig_k: torch.Tensor, n: int, method_index: int) -> torch.Tensor:
+    """Match tables.ipynb / paper: OLS pred_sig is already SE; Riesz pred_sig is IF SD."""
+    if method_index == OLS_METHOD_INDEX:
+        return sig_k
+    return sig_k / math.sqrt(n)
+
+
+def collect(mc_reps: int | None = None) -> pd.DataFrame:
     rows = []
     for n in NS:
         for model_name in PROPENSITY_MODELS:
@@ -49,10 +59,13 @@ def collect() -> pd.DataFrame:
                 print(f"Missing N={n}, model={model_name} — skipping")
                 continue
             pred_theta, pred_sig, att = loaded
+            if mc_reps is not None:
+                pred_theta = pred_theta[:mc_reps]
+                pred_sig = pred_sig[:mc_reps]
 
             for k, method in enumerate(METHOD_LABELS):
                 theta_k, sig_k = pred_theta[:, k], pred_sig[:, k]
-                se_k = sig_k / math.sqrt(n)
+                se_k = _se_for_method(sig_k, n, k)
                 ci_low, ci_high = theta_k - 1.96 * se_k, theta_k + 1.96 * se_k
                 rows.append({
                     "N": n,
@@ -69,6 +82,12 @@ def collect() -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--mc-reps",
+        type=int,
+        default=None,
+        help="Use first R Monte Carlo replications (paper tables use 100; cluster runs 500).",
+    )
     args = parser.parse_args()
 
     out_path = RESULTS_DIR / "summary.csv"
@@ -76,7 +95,7 @@ def main() -> None:
         print("2. Collect Results — summary.csv exists (use --force to overwrite).")
         return
 
-    df = collect()
+    df = collect(mc_reps=args.mc_reps)
     if df.empty:
         raise SystemExit("No intermediate results found.")
 

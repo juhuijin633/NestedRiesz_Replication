@@ -8,7 +8,7 @@
 #SBATCH --mem=8GB
 #SBATCH --partition=intermediate
 
-# One array task = one (N, propensity) job with 100 Monte Carlo replications inside.
+# One array task = one (N, propensity) job with 500 Monte Carlo replications inside.
 #
 #   task_id // 3  →  N ∈ {500, 1000, 2000}
 #   task_id % 3  →  propensity ∈ {logistic, truncated_logistic, truncated_step}

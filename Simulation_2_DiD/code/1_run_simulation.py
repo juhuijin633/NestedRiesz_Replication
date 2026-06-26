@@ -34,13 +34,13 @@ INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
 # --- Design (matches simulation_cluster.py; do not change seeds) ---
 NS = [500, 1000, 2000]
 PROPENSITY_NAMES = ["logistic", "truncated_logistic", "truncated_step"]
-TMAX = 100
+TMAX = 500
 DIM_X, DIM_Z = 3, 2
 DGP_SEED = 123
 PHI_Y = 1.0
 ATT_N = 1_000_000
 N_METHODS = 5
-# Per replication t=0..99: torch.manual_seed(t); all estimators use seed=t
+# Per replication t=0..TMAX-1: torch.manual_seed(t); all estimators use seed=t
 
 _PROP_LOWER, _PROP_UPPER = 0.30, 0.70
 
@@ -140,9 +140,11 @@ def _run_one(n: int, model_name: str, force: bool) -> None:
         theta_k, sig_k = pred_theta[:, k], pred_sig[:, k]
         bias = torch.mean(theta_k - att).item()
         rmse = torch.sqrt(torch.mean((theta_k - att) ** 2)).item()
-        ci_low, ci_high = theta_k - 1.96 * sig_k, theta_k + 1.96 * sig_k
+        # OLS: sig_k is HC0 SE. Riesz: sig_k is IF SD → divide by sqrt(n) for CI (see 2_collect_results.py).
+        se_k = sig_k if k == 0 else sig_k / (n ** 0.5)
+        ci_low, ci_high = theta_k - 1.96 * se_k, theta_k + 1.96 * se_k
         coverage = torch.mean(((ci_low <= att) & (att <= ci_high)).float()).item()
-        print(f"{label:<14} {bias:>8.4f} {rmse:>8.4f} {coverage:>10.2f} {torch.mean(2 * 1.96 * sig_k).item():>10.4f}")
+        print(f"{label:<14} {bias:>8.4f} {rmse:>8.4f} {coverage:>10.2f} {torch.mean(2 * 1.96 * se_k).item():>10.4f}")
 
     print(f"[N={n}, {model_name}] Complete.")
 
