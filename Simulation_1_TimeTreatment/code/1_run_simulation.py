@@ -27,6 +27,9 @@ from utils.hyperparams import (
     rf_f_settings,
 )
 from utils.simulation_config import CONFIGS, DGP_SEED_OFFSET, NS, TMAX
+from utils.seeding import configure_runtime, seed_all
+
+configure_runtime()
 
 PROJECT_ROOT = CODE_DIR.parent
 INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
@@ -111,7 +114,7 @@ def _run_one(config: dict, n: int, t: int, force: bool) -> None:
         print(f"[{config['id']}, N={n}, t={t}] Cached.")
         return
 
-    torch.manual_seed(DGP_SEED_OFFSET + t)
+    seed_all(DGP_SEED_OFFSET + t)
     data = generate(config["dgp"], n, config["func"], config["lower"], config["upper"])
 
     t0 = time.time()

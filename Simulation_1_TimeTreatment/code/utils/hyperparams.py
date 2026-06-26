@@ -1,8 +1,7 @@
 """Learner hyperparameters for time-varying treatment simulations.
 
 Canonical values from time_varying_treatment/run_sim.py.
-Per-replication randomness is NOT set here — torch.manual_seed(123 + t) is set
-in 1_run_simulation.py before each DGP draw.
+Per-replication randomness is NOT set here — seed_all(123 + t) in 1_run_simulation.py.
 
 Paper-facing method names live in utils/simulation_config.py (METHOD_LABELS).
 """
@@ -11,9 +10,8 @@ from __future__ import annotations
 
 import copy
 
-import torch
-
 FOLDS = 4
+DATALOADER_SEED = 0
 
 _lasso_common = {
     "estimate": True,
@@ -74,7 +72,7 @@ _net_common = {
     "warm_start": False,
     "logger": None,
     "model_dir": ".",
-    "device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+    "device": None,
     "n_hidden": 100,
     "drop_prob": 0,
     "degree": 2,

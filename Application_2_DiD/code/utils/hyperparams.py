@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import copy
 
-import torch
-
 FOLDS = 5
-SEED = 0  # final_application.ipynb dynamic_riesz_results default
+SEED = 0  # final_application.ipynb — passed as seed= to each estimator call
+DATALOADER_SEED = 0
+# DiD passes seed into estimateDynamicRiesz / estimateDiD_OLS (no global torch.manual_seed loop).
 
 lasso_cv_settings = {
     "b_degree": 1,
@@ -75,7 +75,7 @@ _net = {
     "warm_start": False,
     "logger": None,
     "model_dir": ".",
-    "device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+    "device": None,  # CPU — replication reproducibility
     "n_hidden": 100,
     "drop_prob": 0,
     "degree": 2,

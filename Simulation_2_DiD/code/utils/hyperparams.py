@@ -1,7 +1,7 @@
 """Learner hyperparameters for DiD simulations.
 
 Canonical values from did/simulations/simulation_cluster.py.
-Per-replication randomness is NOT set here — it comes from seed=t passed
+Per-replication randomness is NOT set here — it comes from seed_all(t) passed
 at call time (see 1_run_simulation.py).
 """
 
@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import copy
 
-import torch
-
 FOLDS = 5
+DATALOADER_SEED = 0
 
 _lasso_common = {
     "lambda_val": 0,
@@ -75,7 +74,7 @@ _net_common = {
     "warm_start": False,
     "logger": None,
     "model_dir": ".",
-    "device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+    "device": None,
     "n_hidden": 100,
     "drop_prob": 0,
     "degree": 2,

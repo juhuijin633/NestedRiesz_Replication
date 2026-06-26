@@ -12,7 +12,13 @@ from pathlib import Path
 from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
 
-from .hyperparams import net_a_settings, net_f_settings
+from .hyperparams import DATALOADER_SEED, net_a_settings, net_f_settings
+
+
+def _shuffled_loader(dataset, batch_size: int) -> DataLoader:
+    gen = torch.Generator()
+    gen.manual_seed(DATALOADER_SEED)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=gen)
 
 def add_weight_decay(net, l2_value, skip_list=()):
     decay, no_decay = [], []
@@ -169,7 +175,7 @@ class RieszNet:
 
         indices = torch.arange(DX.size(0)).to(self.device)
         self.train_ds = TensorDataset(DX, indices)
-        self.train_dl = DataLoader(self.train_ds, batch_size=bs, shuffle=True)
+        self.train_dl = _shuffled_loader(self.train_ds, bs)
 
         self.learner = self.learner.to(device)
 
@@ -397,7 +403,7 @@ class RegNet:
         y = y.reshape(-1, 1)
 
         self.train_ds = TensorDataset(X, y)
-        self.train_dl = DataLoader(self.train_ds, batch_size=bs, shuffle=True)
+        self.train_dl = _shuffled_loader(self.train_ds, bs)
 
         self.learner = self.learner.to(device)
 

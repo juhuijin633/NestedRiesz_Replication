@@ -26,7 +26,6 @@ APP_DIR = Path(__file__).resolve().parent.parent
 INTERMEDIATE_DIR = APP_DIR / "results" / "intermediate"
 RESULTS_DIR = APP_DIR / "results"
 
-QUARTER = 6  # quarters of surrogate outcomes used in estimates
 Z_SCORE = 1.96
 AXIS_LABEL_SIZE = 22
 TICK_LABEL_SIZE = 18
@@ -56,15 +55,21 @@ PLOT_OPTIONS = {
 }
 
 
-def build_summary(application: str, quarter: int) -> pd.DataFrame:
-    auto = pd.read_csv(INTERMEDIATE_DIR / f"auto_{application}_estimates.csv")
-    manual = pd.read_csv(INTERMEDIATE_DIR / f"manual_{application}_estimates.csv")
+def _drop_quarter(df: pd.DataFrame) -> pd.DataFrame:
+    """Legacy intermediate CSVs may include a redundant quarter column."""
+    if "quarter" in df.columns:
+        return df.drop(columns="quarter")
+    return df
+
+
+def build_summary(application: str) -> pd.DataFrame:
+    auto = _drop_quarter(pd.read_csv(INTERMEDIATE_DIR / f"auto_{application}_estimates.csv"))
+    manual = _drop_quarter(pd.read_csv(INTERMEDIATE_DIR / f"manual_{application}_estimates.csv"))
     rows = []
 
     for name, (point, se) in BENCHMARKS[application].items():
         rows.append({
             "outcome": application,
-            "quarter": quarter,
             "estimator": name,
             "group": "baseline",
             "point_estimate": point,
@@ -157,8 +162,8 @@ def plot_summary(
     plt.close(fig)
 
 
-def run_outcome(application: str, quarter: int) -> None:
-    summary = build_summary(application, quarter)
+def run_outcome(application: str) -> None:
+    summary = build_summary(application)
     csv_path = RESULTS_DIR / f"{application}_estimates.csv"
     fig_path = RESULTS_DIR / f"{application}_figure.png"
     plot_opts = PLOT_OPTIONS[application]
@@ -180,7 +185,7 @@ def main() -> None:
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     for app in args.applications:
-        run_outcome(app, QUARTER)
+        run_outcome(app)
 
 
 if __name__ == "__main__":

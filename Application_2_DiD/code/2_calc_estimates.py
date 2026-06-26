@@ -28,7 +28,10 @@ from utils.hyperparams import (
     rf_a_settings,
     rf_f_settings,
 )
+from utils.seeding import configure_runtime
 from utils.load_minwage_data import MinWageData
+
+configure_runtime()
 
 PROJECT_ROOT = CODE_DIR.parent
 INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
@@ -52,6 +55,10 @@ LEGACY_NAME_TO_ID = {
 
 
 def _as_float(x) -> float:
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return float("nan")
+    if isinstance(x, str) and x.strip() == "":
+        return float("nan")
     if hasattr(x, "item"):
         return float(x.item())
     if isinstance(x, str) and x.startswith("tensor("):
@@ -161,7 +168,8 @@ def run_year(year: int, force: bool) -> None:
         _save_row(method_id, att, se, _method_path(year, method_id))
         print(f"   [{year}] {method_id} Complete.")
 
-    pd.concat([pd.read_csv(_method_path(year, m)) for m in COMPUTED_METHOD_IDS]).to_csv(_combined_path(year), index=False)
+    combined = _normalize(pd.concat([pd.read_csv(_method_path(year, m)) for m in COMPUTED_METHOD_IDS]))
+    combined.to_csv(_combined_path(year), index=False)
     print(f"[{year}] Estimates Complete.")
 
 

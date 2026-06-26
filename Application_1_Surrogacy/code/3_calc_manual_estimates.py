@@ -5,8 +5,8 @@ Writes per-estimator CSVs to results/intermediate/ after each run:
 
 Replication policy (trimmed pipeline — three estimators only):
   - Does NOT replay the full gains_app.ipynb sequence (TSLS, RKHS, sparse, etc.).
-  - seed_everything(MANUAL_SEED) once per outcome (earn/employ), matching gains_app.ipynb.
-  - MANUAL_SEED=123 matches gains_app.ipynb.
+  - seed_manual(MANUAL_SEED) once per outcome; configure_runtime() at import.
+  - DML fold seed: nnpiv default random_seed=123 (gains_app did not pass it explicitly).
   - Re-run with --force after code/data fixes; cached per-estimator CSVs are not invalidated
     automatically when only one outcome is recomputed.
 """
@@ -24,17 +24,14 @@ import torch.nn as nn
 from sklearn.linear_model import LogisticRegression
 from threadpoolctl import threadpool_limits
 
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
-
 from nnpiv.ensemble import EnsembleIV
 from nnpiv.neuralnet.agmm import AGMM
 from nnpiv.semiparametrics import DML_longterm
 from nnpiv.tsls import regtsls
-from utils.hyperparams import FOLDS, MANUAL_SEED
+from utils.hyperparams import FOLDS
+from utils.seeding import configure_runtime, seed_manual
+
+configure_runtime()
 
 APP_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = APP_DIR / "data" / "processed"
@@ -51,7 +48,7 @@ COVARIATES = [
     "hisp", "black", "age",
 ] + PRETREAT_VARS
 
-QUARTER = 6  # quarters of surrogate outcomes (earn1..earn6, etc.)
+QUARTER = 6  # surrogate horizon: earn1..earn6, etc. (not written to output tables)
 Z_SCORE = 1.96
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -61,19 +58,9 @@ DML_KWARGS = dict(
     longterm_model="surrogacy",
     n_folds=FOLDS,
     n_rep=1,
-    random_seed=MANUAL_SEED,
     CHIM=False,
     prop_score=LogisticRegression(max_iter=2000),
 )
-
-
-def seed_everything(seed: int) -> None:
-    import random
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
 
 
 def load_sample(application: str, quarter: int) -> dict:
@@ -195,14 +182,16 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
         except Exception:
             pass
 
-        seed_everything(MANUAL_SEED)
+        seed_manual()
 
         for est_label, fit_fn in MANUAL_ESTIMATORS:
             slug = est_label.replace("-", "_")
             intermediate = INTERMEDIATE_DIR / f"manual_{application}_{slug}.csv"
 
             if intermediate.exists() and not force:
-                rows.append(pd.read_csv(intermediate).iloc[0].to_dict())
+                row = pd.read_csv(intermediate).iloc[0].to_dict()
+                row.pop("quarter", None)
+                rows.append(row)
                 print(f"[{label}] {est_label} Complete.", flush=True)
                 continue
 
@@ -210,7 +199,6 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
             se = (ci_hi - ci_lo) / (2 * Z_SCORE)
             row = {
                 "outcome": application,
-                "quarter": quarter,
                 "estimator": est_label,
                 "group": "manual",
                 "point_estimate": point,

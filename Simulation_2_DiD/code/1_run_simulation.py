@@ -27,6 +27,9 @@ from utils.hyperparams import (
     rf_a_settings,
     rf_f_settings,
 )
+from utils.seeding import configure_runtime, seed_all
+
+configure_runtime()
 
 PROJECT_ROOT = CODE_DIR.parent
 INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
@@ -107,7 +110,7 @@ def _run_one(n: int, model_name: str, force: bool) -> None:
     pred_sig = torch.zeros(TMAX, N_METHODS)
 
     for t in tqdm(range(TMAX), desc=f"N={n}, {model_name}"):
-        torch.manual_seed(t)
+        seed_all(t)
         sl = slice(t * n, (t + 1) * n)
         X1_sub, X2_sub = X1[sl, :], X2[sl, :]
         Y1_sub = Y1[sl].view(-1, 1)

@@ -1,0 +1,45 @@
+Reproducibility (NestedRiesz_replication)
+=========================================
+
+Environment
+-----------
+Build and activate the pinned conda env:
+
+  cd setup
+  conda env create -f environment_mac.yml   # Mac
+  conda activate riesz
+
+Verify the 48 pinned packages in clean_requirements.txt:
+
+  python -c "
+import subprocess
+from pathlib import Path
+pins = {}
+for line in Path('clean_requirements.txt').read_text().splitlines():
+    line = line.strip()
+    if '==' in line:
+        n, v = line.split('==', 1)
+        pins[n.lower()] = v
+installed = dict(x.split('==', 1) for x in subprocess.check_output(['pip', 'freeze'], text=True).splitlines() if '==' in x)
+ok = sum(1 for n, v in pins.items() if installed.get(n.lower()) == v)
+print(f'{ok}/{len(pins)} pins match')
+"
+
+On this machine (conda env riesz): 48/48 pins match clean_requirements.txt.
+
+Application 1 Surrogacy
+-----------------------
+  code/utils/seeding.py     — configure_runtime(), seed_auto(), seed_manual()
+  code/utils/hyperparams.py — CPU auto-NN, DATALOADER_SEED, rf n_jobs=1
+  code/utils/dynamicRieszNet.py — DataLoader(generator=...)
+
+Re-run estimates after code changes:
+
+  cd Application_1_Surrogacy/code
+  python 2_calc_auto_estimates.py --force
+  python 3_calc_manual_estimates.py --force
+
+Simulations / Application 2
+---------------------------
+Monte Carlo seeds follow upstream (per-rep torch.manual_seed). Cluster jobs
+should use the same riesz env.

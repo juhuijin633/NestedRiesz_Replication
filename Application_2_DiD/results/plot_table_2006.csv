@@ -4,7 +4,7 @@ static_manual_linear,-0.0497,0.0212,Static,Manual-Linear
 static_auto_rf,-0.051,0.02,Static,Auto-RF
 static_auto_lasso,-0.052,0.021,Static,Auto-Lasso
 static_auto_nn,-0.052,0.02,Static,Auto-NN
-dynamic_ols,,,Dynamic,OLS
+dynamic_ols,-0.0571081526577472,0.0195050742477178,Dynamic,OLS
 dynamic_auto_lasso,-0.0551982000470161,0.0203122533857822,Dynamic,Auto-Lasso
 dynamic_auto_rf,-0.0488628596067428,0.0199504774063825,Dynamic,Auto-RF
 dynamic_auto_nn,-0.0563515834510326,0.0207842011004686,Dynamic,Auto-NN

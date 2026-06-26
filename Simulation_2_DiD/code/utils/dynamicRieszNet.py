@@ -11,6 +11,15 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
+
+DATALOADER_SEED = 0
+
+
+def _shuffled_loader(dataset, batch_size: int) -> DataLoader:
+    gen = torch.Generator()
+    gen.manual_seed(DATALOADER_SEED)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=gen)
+
         
 net_a_settings_global = {
     'test_split' : 0,
@@ -25,7 +34,7 @@ net_a_settings_global = {
     'warm_start' : False,
     'logger' : None,
     'model_dir' : '.',
-    'device' : torch.cuda.current_device() if torch.cuda.is_available() else None,
+    'device' : None,
     'n_hidden' : 100,
     'drop_prob' : 0,
     'degree' : 2,
@@ -46,7 +55,7 @@ net_f_settings_global = {
     'warm_start' : False,
     'logger' : None,
     'model_dir' : '.',
-    'device' : torch.cuda.current_device() if torch.cuda.is_available() else None,
+    'device' : None,
     'n_hidden' : 100,
     'drop_prob' : 0,
     'degree' : 2,
@@ -210,7 +219,7 @@ class RieszNet:
 
         indices = torch.arange(DX.size(0)).to(self.device)
         self.train_ds = TensorDataset(DX, indices)
-        self.train_dl = DataLoader(self.train_ds, batch_size=bs, shuffle=True)
+        self.train_dl = _shuffled_loader(self.train_ds, bs)
 
         self.learner = self.learner.to(device)
 
@@ -438,7 +447,7 @@ class RegNet:
         y = y.reshape(-1, 1)
 
         self.train_ds = TensorDataset(X, y)
-        self.train_dl = DataLoader(self.train_ds, batch_size=bs, shuffle=True)
+        self.train_dl = _shuffled_loader(self.train_ds, bs)
 
         self.learner = self.learner.to(device)
 

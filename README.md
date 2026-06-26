@@ -38,6 +38,8 @@ bash time_varying_treatment/install_glmnet.sh
 
 Alternatively, run `install.packages("glmnet")` from an R session. If R or `glmnet` is absent, only the LASSO method will fail; RF and the neural network will still run.
 
+**Replicability (this replication package):** use `conda activate riesz` and verify pins in `setup/clean_requirements.txt`. Auto-NN runs on CPU (not GPU) with single-thread BLAS and fixed DataLoader shuffle seeds so repeated runs agree. See `setup/REPRODUCIBILITY.txt` for details and verify commands.
+
 ---
 
 ## Exercise 1: Time-Varying Treatment Simulations

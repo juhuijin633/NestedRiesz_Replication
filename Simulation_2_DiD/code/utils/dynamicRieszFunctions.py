@@ -243,7 +243,8 @@ class Trainer:
             rf_f_settings["random_state"] = seed
             self.learners_f = [utils.dynamicRieszRF.Learner_f_RF(rf_f_settings = rf_f_settings) for _ in range(self.T)]
         if method_f == 'Net':
-            torch.manual_seed(seed)
+            from utils.seeding import seed_all
+            seed_all(seed)
             self.learners_f = [utils.dynamicRieszNet.Learner_f_Net(net_f_settings=net_f_settings) for _ in range(self.T)]
         
         # initalise trainers for a functions
@@ -254,7 +255,8 @@ class Trainer:
             rf_a_settings["random_state"] = seed
             self.learners_a = [utils.dynamicRieszRF.Learner_a_RF(rf_a_settings = rf_a_settings) for _ in range(self.T)]
         if method_a == "Net":
-            torch.manual_seed(seed)
+            from utils.seeding import seed_all
+            seed_all(seed)
             self.learners_a = [utils.dynamicRieszNet.Learner_a_Net(net_a_settings = net_a_settings) for _ in range(self.T)]
 
     def train(self):

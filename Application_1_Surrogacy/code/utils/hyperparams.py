@@ -3,20 +3,21 @@
 All estimate scripts and utils modules import from here — do not duplicate
 these dicts elsewhere in Application_1_Surrogacy.
 
-Canonical learner values follow calc_estimates.py / application_fit_final.py:
-  lasso c1 = 0.1  (not "CV")
-  rf n_jobs = 1
+Replication reproducibility (see utils/seeding.py):
+  lasso c1 = 0.1, rf n_jobs = 1, KFold random_state = 42
+  auto-NN on CPU (device=None) — avoids GPU nondeterminism
+  AUTO_SEED / DATALOADER_SEED = 0 for RNG and DataLoader batch order
 """
 
 from __future__ import annotations
 
 import copy
 
-import torch
-
 FOLDS = 5
-AUTO_SEED = 0  # application_fit_final.py — auto (Dynamic Riesz) estimators
-MANUAL_SEED = 123  # gains_app.ipynb — manual (NNPIV/DML) estimators
+KFOLD_RANDOM_STATE = 42
+AUTO_SEED = 0
+DATALOADER_SEED = 0  # fixed DataLoader generator in dynamicRieszNet
+MANUAL_SEED = 123
 
 _lasso_common = {
     "lambda_val": 0,
@@ -80,7 +81,7 @@ _net_common = {
     "warm_start": False,
     "logger": None,
     "model_dir": ".",
-    "device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+    "device": None,  # CPU — replication reproducibility (upstream used CUDA if available)
     "n_hidden": 100,
     "drop_prob": 0,
     "degree": 2,

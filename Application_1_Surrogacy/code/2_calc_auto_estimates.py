@@ -6,22 +6,18 @@ Writes per-estimator CSVs to results/intermediate/ after each run:
 Writes combined CSV per outcome when all estimators finish:
     results/intermediate/auto_{outcome}_estimates.csv
 
-Replication notes (surrogate_application/application_fit_final.py):
-  - AUTO_SEED=0, FOLDS=5 from utils/hyperparams.py
-  - KFold random_state=42
-  - Auto-Lasso / Auto-RF: estimateDynamicRiesz(..., subsetting=False)
-  - Auto-NN: estimateDynamicRiesz_subsetting_net(...)  (separate code path)
-  - Estimator order: Net, Lasso, RF
-  - seed_everything(AUTO_SEED) before each computed auto method (matches
-    application_fit_final.py torch.manual_seed(0) before each fit).
-  - This differs from manual estimates — see 3_calc_manual_estimates.py.
+Replication policy (utils/seeding.py + hyperparams.py):
+  - conda env riesz pinned in setup/clean_requirements.txt
+  - Full RNG seed (random, numpy, torch) before each auto estimator
+  - OMP/BLAS single-thread; deterministic cuDNN; auto-NN on CPU
+  - DataLoader shuffle uses fixed generator (DATALOADER_SEED)
+  - Re-run with: python 2_calc_auto_estimates.py --force
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
-import random
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +38,9 @@ from utils.hyperparams import (
     rf_a_settings,
     rf_f_settings,
 )
+from utils.seeding import configure_runtime, seed_auto
+
+configure_runtime()
 
 APP_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = APP_DIR / "data" / "processed"
@@ -58,7 +57,7 @@ COVARIATES = [
     "hisp", "black", "age",
 ] + PRETREAT_VARS
 
-QUARTER = 6
+QUARTER = 6  # surrogate horizon: earn1..earn6, etc. (not written to output tables)
 Z_SCORE = 1.96
 
 OUTCOME_LABELS = {"earn": "earnings", "employ": "employment"}
@@ -69,14 +68,6 @@ AUTO_ESTIMATORS = [
     ("Auto-Lasso", "lasso"),
     ("Auto-RF", "rf"),
 ]
-
-
-def seed_everything(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
 
 
 def load_sample(application: str, quarter: int) -> dict:
@@ -118,7 +109,7 @@ def load_sample(application: str, quarter: int) -> dict:
 
 def _run_estimator(method: str, sample: dict) -> tuple[float, float]:
     y, g, x, d, s = sample["Y_est"], sample["G"], sample["X"], sample["D_est"], sample["S"]
-    seed_everything(AUTO_SEED)
+    seed_auto(AUTO_SEED)
 
     if method == "net":
         att, std, _ = estimateDynamicRiesz_subsetting_net(
@@ -158,7 +149,9 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
         intermediate = INTERMEDIATE_DIR / f"auto_{application}_{slug}.csv"
 
         if intermediate.exists() and not force:
-            rows.append(pd.read_csv(intermediate).iloc[0].to_dict())
+            row = pd.read_csv(intermediate).iloc[0].to_dict()
+            row.pop("quarter", None)
+            rows.append(row)
             print(f"[{label}] {est_label} Complete.", flush=True)
             continue
 
@@ -166,7 +159,6 @@ def run_application(application: str, quarter: int, force: bool = False) -> None
         se = sigma / (sample["n"] ** 0.5)
         row = {
             "outcome": application,
-            "quarter": quarter,
             "estimator": est_label,
             "group": "auto",
             "point_estimate": point,
