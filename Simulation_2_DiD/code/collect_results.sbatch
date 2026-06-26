@@ -2,10 +2,10 @@
 #SBATCH --job-name=did_sim_collect
 #SBATCH -o ../results/logs/collect.out
 #SBATCH -e ../results/logs/collect.err
-#SBATCH -t 0-00:30:00
+#SBATCH -t 1:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4GB
-#SBATCH --partition=intermediate
+#SBATCH --partition=serial_requeue
 
 set -euo pipefail
 

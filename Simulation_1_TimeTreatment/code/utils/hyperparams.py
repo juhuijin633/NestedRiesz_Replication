@@ -3,6 +3,8 @@
 Canonical values from time_varying_treatment/run_sim.py.
 Per-replication randomness is NOT set here — torch.manual_seed(123 + t) is set
 in 1_run_simulation.py before each DGP draw.
+
+Paper-facing method names live in utils/simulation_config.py (METHOD_LABELS).
 """
 
 from __future__ import annotations

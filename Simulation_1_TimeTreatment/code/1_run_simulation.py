@@ -26,49 +26,14 @@ from utils.hyperparams import (
     rf_a_settings,
     rf_f_settings,
 )
+from utils.simulation_config import CONFIGS, DGP_SEED_OFFSET, NS, TMAX
 
 PROJECT_ROOT = CODE_DIR.parent
 INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
 
-# --- Design (matches time_varying_treatment/submit.sh; do not change seeds) ---
-NS = [500, 1000, 2000]
-TMAX = 500
-DGP_SEED_OFFSET = 123  # torch.manual_seed(123 + t)
-
-CONFIGS = [
-    {
-        "id": "linear_truncated_logistic",
-        "dgp": "linear",
-        "func": "truncated_logistic",
-        "lower": 0.10,
-        "upper": 0.90,
-        "label": "Linear DGP + truncated logistic",
-    },
-    {
-        "id": "nonlinear_truncated_adv",
-        "dgp": "nonlinear",
-        "func": "truncated_adv",
-        "lower": 0.10,
-        "upper": 0.90,
-        "label": "Nonlinear DGP + truncated adversarial",
-    },
-    {
-        "id": "linear_truncated_adv",
-        "dgp": "linear",
-        "func": "truncated_adv",
-        "lower": 0.10,
-        "upper": 0.90,
-        "label": "Linear DGP + truncated adversarial",
-    },
-    {
-        "id": "linear_logistic",
-        "dgp": "linear",
-        "func": "logistic",
-        "lower": 0.10,
-        "upper": 0.90,
-        "label": "Linear DGP + logistic",
-    },
-]
+# Bradic.R grid index for E[Y(1,1)] — matches run_sim.py comments (pred_psi1_t[0], sqrt(pred_sig2_psi1_t[0])).
+BRADIC_THETA_INDEX = 6
+BRADIC_SIG2_INDEX = 9
 
 
 def _result_path(n: int, config_id: str, t: int) -> Path:
@@ -107,10 +72,10 @@ def _estimate_psi11(data: SimulationData) -> dict:
 
     try:
         bradic_result = estimateBradic(y, x, d, x_index, FOLDS)
-        bradic_theta = float(bradic_result[6])
-        bradic_sig = float(torch.sqrt(torch.tensor(float(bradic_result[9]))))
+        bradic_theta = float(bradic_result[BRADIC_THETA_INDEX])
+        bradic_sig = float(torch.sqrt(torch.tensor(float(bradic_result[BRADIC_SIG2_INDEX]))))
     except Exception as exc:
-        print(f"  Bradic failed: {exc}")
+        print(f"  Manual-Lasso (Bradic) failed: {exc}")
         bradic_theta = float("nan")
         bradic_sig = float("nan")
 
@@ -155,6 +120,8 @@ def _run_one(config: dict, n: int, t: int, force: bool) -> None:
     payload["N"] = n
     payload["func_name"] = config["func"]
     payload["config_id"] = config["id"]
+    payload["lower"] = config["lower"]
+    payload["upper"] = config["upper"]
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, out_path)

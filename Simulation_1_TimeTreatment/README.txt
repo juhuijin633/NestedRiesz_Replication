@@ -13,37 +13,43 @@ Layout
     smoke_test.py              one replication pre-flight (cluster)
     1_run_simulation.py        one (config, N, iteration) job per invocation
     2_collect_results.py       aggregate .pt → CSV tables
-    utils/generate_dgp.py, hyperparams.py, dynamicRiesz*, dynamicRieszBradic.py, Bradic.R
+    utils/simulation_config.py design constants + paper method labels
+    utils/generate_dgp.py, hyperparams.py, dynamicRiesz*, Bradic.R
   results/
     intermediate/N_{500,1000,2000}/{config_id}/result_{t}.pt
-    summary.csv, table_psi11.csv
+    summary.csv
 
-Cluster
--------
-  cd Simulation_1_TimeTreatment/code
-  module load python/3.10.9-fasrc01
-  module load R/4.4.3-fasrc01
-  conda activate riesz
+Cluster (FASRC)
+---------------
+  cd Simulation_1_TimeTreatment
+  bash RUN_ALL_JOBS.sh
+
+  # or with explicit partition:
+  bash RUN_ALL_JOBS.sh --partition=shared
+
+  Do NOT: sbatch RUN_ALL_JOBS.sh
 
   Pre-flight (one replication):
-    python smoke_test.py
-
-  Submit full array:
-    sbatch run_simulations.sbatch
-
-  Each array task runs one MC replication (matches time_varying_treatment/submit.sh):
-    4 DGPs × 3 N × 500 iterations = 6000 tasks.
+    cd code && python smoke_test.py
 
 Collect
 -------
   python 2_collect_results.py --force
 
-Seeds: torch.manual_seed(123 + t) before each replication (matches original scripts).
+Seeds: torch.manual_seed(123 + t) before each replication (matches run_sim.py).
 
-Methods: Oracle, Bradic, LASSO-LASSO, RF-RF, Net-Net.
+Method labels in summary.csv (paper tables):
+  Oracle, Manual-Lasso, Auto-Lasso, Auto-RF, Auto-NN
+  (upstream scripts used: Oracle, Bradic, LASSO-LASSO, RF-RF, Net-Net)
 
-Configs (array order):
-  0  linear + truncated_logistic
-  1  nonlinear + truncated_adv
-  2  linear + truncated_adv
+Coverage / CI: theta ± 1.96 * (pred_sig / sqrt(N)) for all methods — matches
+collect_sim_results.py (pred_sig is influence-function SD; Oracle uses SD of psi_i).
+
+Configs (array order, 6000 tasks = 4 × 3 N × 500 reps):
+  0  linear + truncated_logistic [0.1, 0.9]   ← Table F.3 Panel A
+  1  nonlinear + truncated_adv [0.1, 0.9]
+  2  linear + truncated_adv [0.1, 0.9]
   3  linear + logistic
+
+Table F.3 Panel B ([0.3, 0.7] truncation) is in upstream submit_nonATE.sh;
+not in the default 6000-job array (add a config in simulation_config.py to extend).

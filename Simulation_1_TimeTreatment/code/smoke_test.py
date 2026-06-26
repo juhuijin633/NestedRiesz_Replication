@@ -18,8 +18,9 @@ CODE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(CODE_DIR))
 
 run = importlib.import_module("1_run_simulation")
+from utils.simulation_config import CONFIGS
 
 if __name__ == "__main__":
-    config = run.CONFIGS[0]
+    config = CONFIGS[0]
     run._run_one(config, n=100, t=0, force=True)
     print("Smoke test passed.")

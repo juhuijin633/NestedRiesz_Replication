@@ -17,10 +17,18 @@ Layout
     intermediate/N_{500,1000,2000}/{propensity}_*.pt
     summary.csv, table_*.csv
 
-Cluster
--------
+Cluster (FASRC / boslogin)
+----------------------------
   cd Simulation_2_DiD
   bash RUN_ALL_JOBS.sh
+
+  # shared or serial_requeue (max ~3 days; default walltime 72:00:00 in sbatch):
+  bash RUN_ALL_JOBS.sh --partition=shared
+
+  # intermediate only if you need >3 days per array task:
+  bash RUN_ALL_JOBS.sh --partition=intermediate -t 100:00:00
+
+  Do NOT: sbatch RUN_ALL_JOBS.sh
 
 Local
 -----
@@ -32,3 +40,7 @@ Single setting (cluster task or local)
   python 1_run_simulation.py --N 500 --model logistic
 
 Seeds: DGP seed=123; replication t uses torch.manual_seed(t) and seed=t.
+Monte Carlo: TMAX=500 per job (matches did/simulations/simulation_cluster.py).
+Paper tables (100 reps): python 2_collect_results.py --mc-reps 100 --force
+Method labels in CSV: OLS, Auto-Linear, Auto-Lasso, Auto-RF, Auto-NN
+(summary_reference.csv uses old upstream names: Linear_old, LASSO, RF, Net)

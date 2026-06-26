@@ -12,6 +12,8 @@ from pathlib import Path
 CODE_DIR = Path(__file__).resolve().parent
 PYTHON = sys.executable
 
+from utils.simulation_config import CONFIGS, NS  # noqa: E402
+
 
 def run_script(name: str, label: str, extra: list[str] | None = None) -> None:
     print(f"\n{'=' * 60}", flush=True)
@@ -28,13 +30,8 @@ def main() -> None:
     parser.add_argument("--skip-simulation", action="store_true")
     parser.add_argument("--skip-collect", action="store_true")
     parser.add_argument("--force", action="store_true")
-    parser.add_argument("--config", choices=[
-        "linear_truncated_logistic",
-        "nonlinear_truncated_adv",
-        "linear_truncated_adv",
-        "linear_logistic",
-    ])
-    parser.add_argument("--N", type=int, choices=[500, 1000, 2000])
+    parser.add_argument("--config", choices=[c["id"] for c in CONFIGS])
+    parser.add_argument("--N", type=int, choices=NS)
     parser.add_argument("--iteration", type=int, help="Single MC replication (0..499).")
     parser.add_argument(
         "--all",

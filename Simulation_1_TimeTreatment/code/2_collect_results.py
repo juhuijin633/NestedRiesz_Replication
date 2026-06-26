@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate per-iteration .pt files into summary.csv and E[Y(1,1)] tables."""
+"""Aggregate per-iteration .pt files into summary.csv."""
 
 from __future__ import annotations
 
@@ -10,34 +10,11 @@ from pathlib import Path
 import pandas as pd
 import torch
 
+from utils.simulation_config import CONFIGS, METHOD_LABELS, NS, TMAX
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "results" / "intermediate"
 RESULTS_DIR = PROJECT_ROOT / "results"
-
-NS = [500, 1000, 2000]
-TMAX = 500
-
-# E[Y(1,1)] = path-specific theta_{1,1}; compare estimates to theta_true in each .pt file.
-CONFIGS = [
-    {
-        "id": "linear_truncated_logistic",
-        "label": "Linear DGP + truncated logistic",
-    },
-    {
-        "id": "nonlinear_truncated_adv",
-        "label": "Nonlinear DGP + truncated adversarial",
-    },
-    {
-        "id": "linear_truncated_adv",
-        "label": "Linear DGP + truncated adversarial",
-    },
-    {
-        "id": "linear_logistic",
-        "label": "Linear DGP + logistic",
-    },
-]
-
-METHODS = ["Oracle", "Bradic", "LASSO-LASSO", "RF-RF", "Net-Net"]
 
 
 def _job_dir(config_id: str, n: int) -> Path:
@@ -61,13 +38,14 @@ def _load_results(config_id: str, n: int) -> tuple[list[dict], list[int]]:
 
 
 def _compute_metrics(results: list[dict], n: int) -> pd.DataFrame:
+    """Bias / RMSE / coverage — same formulas as collect_sim_results.py."""
     t_count = len(results)
     theta_true = results[0]["theta_true"]
     if isinstance(theta_true, torch.Tensor):
         theta_true = theta_true.item()
 
-    pred_theta = torch.zeros(t_count, 5)
-    pred_sig = torch.zeros(t_count, 5)
+    pred_theta = torch.zeros(t_count, len(METHOD_LABELS))
+    pred_sig = torch.zeros(t_count, len(METHOD_LABELS))
 
     for i, row in enumerate(results):
         pred_theta[i, 0] = row["oracle_theta"]
@@ -83,6 +61,7 @@ def _compute_metrics(results: list[dict], n: int) -> pd.DataFrame:
 
     bias = torch.nanmean(pred_theta - theta_true, 0)
     rmse = torch.sqrt(torch.nanmean((pred_theta - theta_true) ** 2, 0))
+    # pred_sig = influence-function SD (Oracle: SD of per-unit psi); SE = sig / sqrt(n).
     se = pred_sig / (n ** 0.5)
     ub = pred_theta + 1.96 * se
     lb = pred_theta - 1.96 * se
@@ -91,7 +70,7 @@ def _compute_metrics(results: list[dict], n: int) -> pd.DataFrame:
 
     return pd.DataFrame(
         {
-            "Method": METHODS,
+            "Method": METHOD_LABELS,
             "Bias": [round(x, 4) for x in bias.tolist()],
             "RMSE": [round(x, 4) for x in rmse.tolist()],
             "Coverage": [round(x, 4) for x in coverage.tolist()],
@@ -162,10 +141,6 @@ def main() -> None:
     print("\n2. Collect Results")
     df.to_csv(out_path, index=False)
     print(f"\nSaved to {out_path}")
-
-    table_path = RESULTS_DIR / "table_psi11.csv"
-    df.to_csv(table_path, index=False)
-    print(f"  E[Y(1,1)] → {table_path.name}")
 
 
 if __name__ == "__main__":
